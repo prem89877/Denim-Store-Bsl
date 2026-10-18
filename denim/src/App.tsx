@@ -1,28 +1,17 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  MapPin, Phone, Menu, X, Scissors, Ruler, Shirt, Baby, Watch, Award,
-  Users, Heart, Star, Navigation, Sparkles, Clock,
+  MapPin, Phone, Menu, X, Award, Users, Heart, Star, Navigation, Clock, Download,
 } from "lucide-react";
-
-/* ---------- EDIT YOUR CLIENT'S DETAILS HERE ---------- */
-const PHONE = "9604627267";
-const ADDRESS = "Railway Station Rd, Gandhi Nagar, Kanhaya Kunj, Bhusawal, Maharashtra 425201";
-const MAPS = "https://maps.app.goo.gl/bSU9DcLPc1RsPQi4A";
+import ProductSection from "./components/ProductSection";
+import Admin from "./components/Admin";
+import { useInstallPrompt } from "./pwa";
+import { PHONE, ADDRESS, MAPS } from "./config";
 
 const stats = [
   { n: "25+", l: "Years in Bhusawal" },
   { n: "10,000+", l: "Happy customers" },
   { n: "500+", l: "Styles in store" },
   { n: "3", l: "Generations of trust" },
-];
-
-const collections = [
-  { icon: Ruler, title: "Jeans", text: "Slim, straight, relaxed and bootcut. Every fit is tried and checked before it reaches our shelf." },
-  { icon: Shirt, title: "Shirts and tees", text: "Soft cotton and denim shirts that go from the office to the weekend." },
-  { icon: Scissors, title: "Jackets", text: "Classic trucker and washed denim jackets built to last for years." },
-  { icon: Baby, title: "Kids wear", text: "Tough, comfortable denim for children who never stop moving." },
-  { icon: Watch, title: "Accessories", text: "Belts, wallets and caps to finish the look." },
-  { icon: Sparkles, title: "Festive and wedding", text: "Smart collections for the season, ready when the occasion is." },
 ];
 
 const journey = [
@@ -38,32 +27,39 @@ const values = [
   { icon: Users, title: "Service like family", text: "Our team knows regular customers by name and helps everyone find their fit." },
 ];
 
-const nav = [["Collections", "#collections"], ["Our journey", "#journey"], ["Our legacy", "#legacy"], ["Visit us", "#visit"]];
+const nav = [["Products", "#products"], ["Our journey", "#journey"], ["Our legacy", "#legacy"], ["Visit us", "#visit"]];
 
 function Rivet({ className = "" }: { className?: string }) {
   return <span className={`rivet inline-block h-3 w-3 rounded-full bg-rivet ${className}`} aria-hidden />;
 }
 
-export default function App() {
+function Site() {
   const [open, setOpen] = useState(false);
+  const install = useInstallPrompt();
 
   return (
     <div className="min-h-screen bg-white">
       {/* HEADER */}
       <header className="sticky top-0 z-40 border-b border-denim-sky bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3">
-          <a href="#top" className="flex items-center gap-2 font-display text-2xl font-extrabold tracking-tight text-denim-deep">
-            <span className="twill grid h-9 w-9 place-items-center rounded-md text-white"><Rivet /></span>
-            Denim
+          <a href="#top" aria-label="Denim home" className="flex items-center">
+            <img src="/denim-logo.png" alt="Denim" className="h-9 w-auto md:h-10" />
           </a>
           <nav className="hidden gap-8 md:flex" aria-label="Main">
             {nav.map(([l, h]) => (
               <a key={h} href={h} className="font-medium text-denim hover:text-rivet">{l}</a>
             ))}
           </nav>
-          <a href={`tel:${PHONE}`} className="hidden items-center gap-2 rounded-full bg-denim-deep px-5 py-2 font-medium text-white hover:bg-denim md:inline-flex">
-            <Phone size={16} /> Call us
-          </a>
+          <div className="hidden items-center gap-3 md:flex">
+            {install && (
+              <button onClick={install} className="inline-flex items-center gap-2 rounded-full border-2 border-denim-deep px-4 py-2 font-medium hover:bg-denim-deep hover:text-white">
+                <Download size={16} /> Install app
+              </button>
+            )}
+            <a href={`tel:${PHONE}`} className="inline-flex items-center gap-2 rounded-full bg-denim-deep px-5 py-2 font-medium text-white hover:bg-denim">
+              <Phone size={16} /> Call us
+            </a>
+          </div>
           <button className="md:hidden" onClick={() => setOpen(!open)} aria-label="Toggle menu" aria-expanded={open}>
             {open ? <X /> : <Menu />}
           </button>
@@ -73,6 +69,9 @@ export default function App() {
             {nav.map(([l, h]) => (
               <a key={h} href={h} onClick={() => setOpen(false)} className="py-2 font-medium text-denim">{l}</a>
             ))}
+            {install && (
+              <button onClick={install} className="flex items-center gap-2 py-2 text-left font-medium text-denim"><Download size={16} /> Install app</button>
+            )}
           </nav>
         )}
       </header>
@@ -94,8 +93,8 @@ export default function App() {
               <a href={MAPS} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full bg-stitch px-7 py-3 font-bold text-denim-deep hover:bg-white">
                 <Navigation size={18} /> Get directions
               </a>
-              <a href="#collections" className="inline-flex items-center rounded-full border-2 border-white/60 px-7 py-3 font-bold hover:bg-white hover:text-denim-deep">
-                See collections
+              <a href="#products" className="inline-flex items-center rounded-full border-2 border-white/60 px-7 py-3 font-bold hover:bg-white hover:text-denim-deep">
+                Browse products
               </a>
             </div>
           </div>
@@ -105,7 +104,7 @@ export default function App() {
             <div className="seam relative mx-auto max-w-xs rotate-3 rounded-xl bg-white p-8 text-denim-deep shadow-2xl">
               <Rivet className="absolute left-4 top-4" />
               <Rivet className="absolute right-4 top-4" />
-              <p className="mt-4 font-display text-6xl font-extrabold leading-none">Denim</p>
+              <img src="/denim-logo.png" alt="Denim" className="mt-6 h-auto w-full" />
               <p className="mt-2 text-sm font-medium text-denim">Quality jeanswear</p>
               <div className="my-5 border-t-2 border-dashed border-denim-sky" />
               <dl className="space-y-1 text-sm">
@@ -131,20 +130,8 @@ export default function App() {
         </div>
       </section>
 
-      {/* COLLECTIONS */}
-      <section id="collections" className="mx-auto max-w-6xl px-5 py-20">
-        <h2 className="font-display text-4xl font-extrabold md:text-5xl">What we bring to the rack</h2>
-        <p className="mt-3 max-w-xl text-denim">A wide range for men, women and kids. Visit the store to see, touch and try every piece.</p>
-        <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {collections.map(({ icon: Icon, title, text }, i) => (
-            <article key={title} className={`rounded-2xl p-7 ${i % 3 === 0 ? "twill text-white" : i % 3 === 1 ? "bg-denim-wash" : "seam bg-white"}`}>
-              <Icon size={30} className={i % 3 === 0 ? "text-stitch" : "text-rivet"} />
-              <h3 className="mt-5 font-display text-2xl font-bold">{title}</h3>
-              <p className={`mt-2 ${i % 3 === 0 ? "text-denim-wash" : "text-denim-deep/80"}`}>{text}</p>
-            </article>
-          ))}
-        </div>
-      </section>
+      {/* PRODUCTS */}
+      <ProductSection />
 
       {/* JOURNEY (real sequence → timeline) */}
       <section id="journey" className="twill-deep text-white">
@@ -220,7 +207,7 @@ export default function App() {
       <footer className="twill-deep text-white">
         <div className="mx-auto grid max-w-6xl gap-8 px-5 py-12 md:grid-cols-3">
           <div>
-            <p className="font-display text-3xl font-extrabold">Denim</p>
+            <img src="/denim-logo.png" alt="Denim" className="h-10 w-auto" />
             <p className="mt-2 text-denim-sky">Quality jeanswear for Bhusawal, since 1998.</p>
           </div>
           <div>
@@ -236,4 +223,16 @@ export default function App() {
       </footer>
     </div>
   );
+}
+
+const isAdminRoute = () => window.location.hash.startsWith("#/admin");
+
+export default function App() {
+  const [admin, setAdmin] = useState(isAdminRoute());
+  useEffect(() => {
+    const on = () => setAdmin(isAdminRoute());
+    window.addEventListener("hashchange", on);
+    return () => window.removeEventListener("hashchange", on);
+  }, []);
+  return admin ? <Admin /> : <Site />;
 }
