@@ -81,17 +81,6 @@ function writeLocal(key: string, value: unknown) {
   }
 }
 
-const SEED: Product[] = [
-  { id: "demo-1", name: "Classic Straight Jeans", price: 1299, mrp: 1599, category: "Jeans",
-    description: "Mid-rise straight fit in durable mid-blue denim.", sizes: ["30", "32", "34", "36"],
-    images: [], colours: [], status: "in_stock", createdAt: new Date().toISOString() },
-  { id: "demo-2", name: "Washed Trucker Jacket", price: 1899, mrp: null, category: "Jackets",
-    description: "Washed denim jacket with metal buttons.", sizes: ["M", "L", "XL"],
-    images: [], colours: [], status: "in_stock", createdAt: new Date().toISOString() },
-  { id: "demo-3", name: "Kids Stretch Jeans", price: 799, mrp: 999, category: "Kids wear",
-    description: "Soft stretch denim for everyday play.", sizes: ["S", "M", "L"],
-    images: [], colours: [], status: "in_stock", createdAt: new Date().toISOString() },
-];
 
 const channel = () => (typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("denim-visits") : null);
 
@@ -102,9 +91,7 @@ export async function listProducts(): Promise<Product[]> {
     if (error) throw new Error(error.message);
     return (data as ProductRow[]).map(fromProduct);
   }
-  const existing = localStorage.getItem(LP);
-  if (existing === null) writeLocal(LP, SEED);
-  return readLocal<Product[]>(LP, SEED);
+  return readLocal<Product[]>(LP, []);
 }
 
 export async function saveProduct(p: ProductInput): Promise<void> {
