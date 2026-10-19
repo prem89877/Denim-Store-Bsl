@@ -6,6 +6,7 @@ import ProductSection from "./components/ProductSection";
 import Admin from "./components/Admin";
 import { AccountMenu } from "./components/CustomerAuth";
 import WelcomePrompt from "./components/WelcomePrompt";
+import SupportChat from "./components/SupportChat";
 import { isIOS, isStandalone, useInstallPrompt } from "./pwa";
 import { PHONE, ADDRESS, MAPS } from "./config";
 
@@ -238,9 +239,9 @@ function Site() {
             <a href={MAPS} target="_blank" rel="noreferrer" className="mt-2 flex gap-2 hover:text-stitch"><MapPin size={16} className="mt-1 shrink-0" />{ADDRESS}</a>
           </div>
         </div>
-        <p className="border-t-2 border-dashed border-stitch/60 py-4 text-center text-sm text-denim-sky">© Denim. All rights reserved.</p>
       </footer>
       <WelcomePrompt />
+      <SupportChat />
     </div>
   );
 }

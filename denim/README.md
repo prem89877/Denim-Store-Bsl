@@ -57,3 +57,17 @@ Without steps 1-3 the admin still sees new requests live inside the open app and
 
 ## Demo mode
 With no Supabase keys the site runs in demo mode (data in this browser only, admin passcode `DEMO_ADMIN_PASSCODE` in `src/config.ts`, default `denim123`). No push in demo mode.
+
+## Admin QR code
+Admin panel -> **QR code** tab. The QR is placed on the Denim card image (`public/qr-card.jpg`). The link is filled with the website address you opened the admin on; change it to your live link if needed. **Download QR card** saves the full card, **Only QR** saves just the code. Scanning it opens the website for the customer.
+
+## 24/7 AI help (OpenRouter)
+Customers see a **Help 24/7** button on the website. The OpenRouter key stays on the server (Supabase function), never in the website.
+
+1. Create a key at openrouter.ai -> Keys.
+2. In the project folder:
+       supabase secrets set OPENROUTER_API_KEY=sk-or-xxxxxxxx
+       supabase functions deploy ai-support --no-verify-jwt
+3. Optional: choose another model, `supabase secrets set OPENROUTER_MODEL=openai/gpt-4o-mini` (any OpenRouter model id).
+
+The assistant reads the live product list (name, price, sizes, colours, stock) so answers stay up to date. If the AI is not set up (or in demo mode) the chat shows Call and WhatsApp buttons instead.
