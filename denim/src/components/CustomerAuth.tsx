@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { LogIn, LogOut, UserRound, X } from "lucide-react";
+import { LayoutDashboard, LogIn, LogOut, UserRound, X } from "lucide-react";
 import {
-  customerGoogle, customerSignIn, customerSignOut, customerSignUp, getCustomer, isCloud, onAuthChange, type Customer,
+  customerGoogle, customerSignIn, customerSignOut, customerSignUp, getCustomer, isAdminSession, isCloud, onAuthChange, type Customer,
 } from "../lib/store";
 
 /* the logged in customer (null when logged out or in demo mode) */
@@ -115,6 +115,14 @@ function AuthModal({ onClose }: { onClose: () => void }) {
 export function AccountMenu({ mobile = false }: { mobile?: boolean }) {
   const customer = useCustomer();
   const [open, setOpen] = useState(false);
+  const [admin, setAdmin] = useState(false);
+
+  /* admins (listed in the SQL admins table) get an "Admin panel" button */
+  useEffect(() => {
+    if (!customer) { setAdmin(false); return; }
+    isAdminSession().then(setAdmin).catch(() => setAdmin(false));
+  }, [customer]);
+
   if (!isCloud) return null;
 
   const base = mobile
@@ -123,6 +131,9 @@ export function AccountMenu({ mobile = false }: { mobile?: boolean }) {
 
   return (
     <>
+      {admin && (
+        <a href="#/admin" className={base}><LayoutDashboard size={16} /> Admin panel</a>
+      )}
       {customer ? (
         <button onClick={() => customerSignOut()} className={base} title={customer.email}>
           <UserRound size={16} /> Hi, {customer.name.split(" ")[0]} <LogOut size={14} className="opacity-70" />
