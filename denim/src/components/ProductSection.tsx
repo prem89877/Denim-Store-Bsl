@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Shirt, X, Navigation, MessageCircle, CheckCircle2, Store, ChevronRight } from "lucide-react";
+import { Shirt, X, Navigation, MessageCircle, CheckCircle2, Store, ArrowRight, Search } from "lucide-react";
 import { listProducts, createVisit, STOCK_LABEL, type Product } from "../lib/store";
 import { inr, validMobile } from "../lib/utils";
 import { useCustomer } from "./CustomerAuth";
@@ -213,6 +213,7 @@ export default function ProductSection() {
   const [products, setProducts] = useState<Product[] | null>(null);
   const [error, setError] = useState("");
   const [cat, setCat] = useState("All");
+  const [query, setQuery] = useState("");
   const [open, setOpen] = useState<Product | null>(null);
 
   useEffect(() => {
@@ -220,65 +221,118 @@ export default function ProductSection() {
   }, []);
 
   const cats = ["All", ...CATEGORIES.filter((c) => products?.some((p) => p.category === c))];
-  const shown = (products ?? []).filter((p) => cat === "All" || p.category === cat);
+  const q = query.trim().toLowerCase();
+  const shown = (products ?? []).filter(
+    (p) => (cat === "All" || p.category === cat) && (!q || p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q))
+  );
+  const countOf = (c: string) => (products ?? []).filter((p) => c === "All" || p.category === c).length;
 
   return (
-    <section id="products" className="mx-auto max-w-6xl px-5 py-20">
-      <h2 className="font-display text-4xl font-extrabold md:text-5xl">What we bring to the rack</h2>
-      <p className="mt-3 max-w-xl text-denim">Tap a style, pick your size and let the shop know you are coming. Try every piece in store.</p>
+    <section id="products" className="bg-gradient-to-b from-denim-wash/70 via-white to-white">
+      <div className="mx-auto max-w-6xl px-4 py-16 sm:px-5 sm:py-20">
+        <p className="text-sm font-bold uppercase tracking-widest text-rivet">Our collection</p>
+        <h2 className="mt-2 font-display text-4xl font-extrabold leading-tight md:text-5xl">What we bring to the rack</h2>
+        <p className="mt-3 max-w-xl text-denim">Tap a style, pick your colour and size, and let the shop know you are coming. Try every piece in store.</p>
 
-      {cats.length > 2 && (
-        <div className="mt-8 flex flex-wrap gap-2" role="tablist" aria-label="Categories">
-          {cats.map((c) => (
-            <button key={c} onClick={() => setCat(c)} aria-pressed={cat === c}
-              className={`rounded-full px-5 py-2 font-medium ${cat === c ? "bg-denim-deep text-white" : "bg-denim-wash text-denim-deep hover:bg-denim-sky"}`}>
-              {c}
-            </button>
-          ))}
+        <div className="mt-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          {cats.length > 2 ? (
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Categories">
+              {cats.map((c) => (
+                <button key={c} onClick={() => setCat(c)} aria-pressed={cat === c}
+                  className={`rounded-full px-4 py-2 text-sm font-bold shadow-sm transition ${cat === c ? "bg-denim-deep text-white" : "bg-white text-denim-deep ring-1 ring-denim-sky hover:bg-denim-wash"}`}>
+                  {c} <span className={cat === c ? "text-white/70" : "text-denim-deep/50"}>{countOf(c)}</span>
+                </button>
+              ))}
+            </div>
+          ) : <span />}
+          {products && products.length > 0 && (
+            <label className="relative block md:w-72">
+              <span className="sr-only">Search products</span>
+              <Search size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-denim" />
+              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search styles"
+                className="w-full rounded-full border-0 bg-white py-3 pl-11 pr-4 shadow-sm ring-1 ring-denim-sky focus:outline-none focus:ring-2 focus:ring-denim" />
+            </label>
+          )}
         </div>
-      )}
 
-      {error && <p className="mt-8 text-tag">{error}</p>}
-      {!products && !error && <p className="mt-10 text-denim">Loading styles...</p>}
-      {products && shown.length === 0 && <p className="mt-10 rounded-2xl bg-denim-wash p-8 text-denim">New styles are coming soon. Visit the store to see our full range.</p>}
+        {error && <p className="mt-8 rounded-2xl bg-white p-5 text-tag shadow-sm">{error}</p>}
 
-      <div className="mt-8 grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
-        {shown.map((p) => {
-          const off = p.mrp && p.mrp > p.price ? Math.round((1 - p.price / p.mrp) * 100) : 0;
-          return (
-            <button key={p.id} onClick={() => setOpen(p)}
-              className="group flex flex-col overflow-hidden rounded-2xl border border-denim-sky/70 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
-              <div className="relative aspect-square overflow-hidden bg-denim-wash">
-                <Photo src={p.images[0]} alt={p.name} className="h-full w-full transition duration-500 group-hover:scale-105" />
-                {p.status !== "in_stock" && (
-                  <span className={`absolute left-2 top-2 rounded-full px-2.5 py-1 text-[11px] font-bold ${p.status === "out_of_stock" ? "bg-tag text-white" : "bg-stitch text-denim-deep"}`}>
-                    {STOCK_LABEL[p.status]}
-                  </span>
-                )}
-                {off > 0 && <span className="absolute right-2 top-2 rounded-full bg-denim-deep px-2.5 py-1 text-[11px] font-bold text-white">{off}% OFF</span>}
+        {!products && !error && (
+          <div className="mt-8 grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4" aria-label="Loading styles">
+            {[0, 1, 2, 3].map((n) => (
+              <div key={n} className="animate-pulse overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-denim-sky/50">
+                <div className="aspect-square bg-denim-wash" />
+                <div className="space-y-3 p-4"><div className="h-4 w-3/4 rounded bg-denim-wash" /><div className="h-4 w-1/2 rounded bg-denim-wash" /></div>
               </div>
-              <div className="flex flex-1 flex-col p-3 sm:p-4">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-rivet">{p.category}</p>
-                <h3 className="mt-0.5 line-clamp-2 min-h-[2.5rem] font-display text-[15px] font-bold leading-tight sm:text-base">{p.name}</h3>
-                <p className="mt-2 flex flex-wrap items-baseline gap-x-2">
-                  <span className="font-display text-lg font-extrabold text-denim">{inr(p.price)}</span>
-                  {off > 0 && p.mrp && <span className="text-xs text-denim-deep/50 line-through">{inr(p.mrp)}</span>}
-                </p>
-                <div className="mt-auto flex items-center justify-between pt-3">
-                  <div className="flex items-center gap-1" aria-label="Available colours">
-                    {p.colours.slice(0, 4).map((c) => (
-                      <span key={c.name} title={c.name} className={`h-4 w-4 rounded-full border border-black/10 ${c.available ? "" : "opacity-30"}`} style={{ backgroundColor: c.hex }} />
-                    ))}
-                    {p.colours.length > 4 && <span className="text-xs text-denim-deep/60">+{p.colours.length - 4}</span>}
-                  </div>
-                  <span className="inline-flex items-center text-xs font-bold text-denim group-hover:text-rivet">
-                    Select size <ChevronRight size={14} />
+            ))}
+          </div>
+        )}
+
+        {products && shown.length === 0 && (
+          <div className="mt-8 rounded-3xl bg-white p-10 text-center shadow-sm ring-1 ring-denim-sky/60">
+            <Shirt className="mx-auto text-denim" size={36} />
+            <p className="mt-3 font-display text-xl font-bold">{products.length === 0 ? "New styles are coming soon" : "No styles match your search"}</p>
+            <p className="mt-1 text-denim">Visit the store to see our full range.</p>
+          </div>
+        )}
+
+        <div className="mt-8 grid grid-cols-2 items-stretch gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
+          {shown.map((p) => {
+            const off = p.mrp && p.mrp > p.price ? Math.round((1 - p.price / p.mrp) * 100) : 0;
+            return (
+              <button key={p.id} onClick={() => setOpen(p)}
+                className="group flex h-full flex-col overflow-hidden rounded-3xl bg-white text-left shadow-md ring-1 ring-denim-sky/60 transition duration-300 hover:-translate-y-1 hover:shadow-xl">
+                <div className="relative aspect-square overflow-hidden bg-denim-wash">
+                  <Photo src={p.images[0]} alt={p.name} className="h-full w-full transition duration-500 group-hover:scale-105" />
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/35 to-transparent" />
+                  {p.status !== "in_stock" && (
+                    <span className={`absolute left-2 top-2 rounded-full px-2.5 py-1 text-[11px] font-bold shadow ${p.status === "out_of_stock" ? "bg-tag text-white" : "bg-stitch text-denim-deep"}`}>
+                      {STOCK_LABEL[p.status]}
+                    </span>
+                  )}
+                  {off > 0 && <span className="absolute right-2 top-2 rounded-full bg-rivet px-2.5 py-1 text-[11px] font-bold text-white shadow">{off}% OFF</span>}
+                  <span className="absolute bottom-2 left-2 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-bold text-denim-deep shadow">{p.category}</span>
+                </div>
+
+                <div className="flex flex-1 flex-col gap-3 p-3 sm:p-4">
+                  <h3 className="break-words font-display text-base font-bold leading-snug">{p.name}</h3>
+
+                  <p className="flex flex-wrap items-baseline gap-x-2">
+                    <span className="font-display text-xl font-extrabold text-denim">{inr(p.price)}</span>
+                    {off > 0 && p.mrp && <span className="text-sm text-denim-deep/50 line-through">{inr(p.mrp)}</span>}
+                  </p>
+
+                  {p.colours.length > 0 && (
+                    <div>
+                      <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-denim-deep/50">Colours</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {p.colours.map((c) => (
+                          <span key={c.name} title={c.available ? c.name : `${c.name} (not available)`}
+                            className={`h-5 w-5 rounded-full border border-black/10 ${c.available ? "" : "opacity-30"}`} style={{ backgroundColor: c.hex }} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {p.sizes.length > 0 && (
+                    <div>
+                      <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-denim-deep/50">Sizes</p>
+                      <div className="flex flex-wrap gap-1">
+                        {p.sizes.map((s) => (
+                          <span key={s} className="rounded-md bg-denim-wash px-1.5 py-0.5 text-[11px] font-bold text-denim-deep">{s}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <span className={`mt-auto inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-bold transition ${p.status === "out_of_stock" ? "bg-denim-wash text-denim-deep" : "bg-denim-deep text-white group-hover:bg-rivet"}`}>
+                    {p.status === "out_of_stock" ? "View details" : "Select & visit shop"} <ArrowRight size={16} />
                   </span>
                 </div>
-              </div>
-            </button>
-          );
-        })}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {open && <ProductModal p={open} onClose={() => setOpen(null)} />}
