@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Shirt, X, Navigation, MessageCircle, CheckCircle2, Store, ArrowRight, Search } from "lucide-react";
-import { listProducts, createVisit, STOCK_LABEL, type Product } from "../lib/store";
+import { listProducts, createVisit, priceFor, priceRange, STOCK_LABEL, type Product } from "../lib/store";
 import { inr, validMobile } from "../lib/utils";
 import { useCustomer } from "./CustomerAuth";
 import { ADDRESS, CATEGORIES, MAPS, WHATSAPP } from "../config";
@@ -45,6 +45,10 @@ function ProductModal({ p, onClose }: { p: Product; onClose: () => void }) {
   const needsSize = p.sizes.length > 0;
   const ready = (!needsSize || size !== null) && (!needsColour || colour !== null);
   const soldOut = p.status === "out_of_stock";
+  const range = priceRange(p);
+  const varies = range.min !== range.max;
+  const unitPrice = priceFor(p, size, colour);
+  const shownPrice = varies && !ready ? range.min : unitPrice;
 
   function pickColour(name: string) {
     setColour(name);
@@ -120,8 +124,9 @@ function ProductModal({ p, onClose }: { p: Product; onClose: () => void }) {
             </div>
 
             <p className="mt-3 flex items-baseline gap-3">
-              <span className="font-display text-3xl font-extrabold text-denim">{inr(p.price)}</span>
-              {p.mrp && p.mrp > p.price && <span className="text-denim-deep/50 line-through">{inr(p.mrp)}</span>}
+              {varies && !ready && <span className="text-sm font-medium text-denim-deep/60">From</span>}
+              <span className="font-display text-3xl font-extrabold text-denim">{inr(shownPrice)}</span>
+              {!varies && p.mrp && p.mrp > unitPrice && <span className="text-denim-deep/50 line-through">{inr(p.mrp)}</span>}
             </p>
             {p.description && <p className="mt-3 text-denim-deep/80">{p.description}</p>}
 
@@ -148,11 +153,11 @@ function ProductModal({ p, onClose }: { p: Product; onClose: () => void }) {
                 {p.status === "low_stock" && <p className="inline-block rounded bg-stitch px-3 py-1 text-sm font-bold text-denim-deep">Only a few left</p>}
                 {needsColour && (
                   <fieldset>
-                    <legend className="mb-2 font-bold">Colour{colour ? `: ${colour}` : ""}</legend>
+                    <legend className="mb-2 font-bold">Colour{colour ? `: ${colour}` : ""}{chosen?.price ? ` (${inr(chosen.price)})` : ""}</legend>
                     <div className="flex flex-wrap gap-3">
                       {p.colours.map((c) => (
                         <button type="button" key={c.name} disabled={!c.available} onClick={() => pickColour(c.name)}
-                          aria-label={c.available ? c.name : `${c.name} (not available)`} aria-pressed={colour === c.name} title={c.name}
+                          aria-label={c.available ? c.name : `${c.name} (not available)`} aria-pressed={colour === c.name} title={c.price ? `${c.name} - ${inr(c.price)}` : c.name}
                           className={`relative h-10 w-10 rounded-full border-2 ${colour === c.name ? "ring-2 ring-denim-deep ring-offset-2" : ""} ${c.available ? "border-denim-sky" : "cursor-not-allowed opacity-40"}`}
                           style={{ backgroundColor: c.hex }}>
                           {!c.available && <span className="absolute inset-0 grid place-items-center text-lg font-bold text-tag">/</span>}
@@ -169,6 +174,7 @@ function ProductModal({ p, onClose }: { p: Product; onClose: () => void }) {
                       <button type="button" key={s} onClick={() => setSize(s)} aria-pressed={size === s}
                         className={`min-w-[3rem] rounded-lg border-2 px-3 py-2 font-bold ${size === s ? "border-denim-deep bg-denim-deep text-white" : "border-denim-sky hover:border-denim"}`}>
                         {s}
+                        {p.sizePrices[s] ? <span className="block text-[11px] font-medium opacity-80">{inr(p.sizePrices[s])}</span> : null}
                       </button>
                     ))}
                   </div>
@@ -278,7 +284,9 @@ export default function ProductSection() {
 
         <div className="mt-8 grid grid-cols-2 items-stretch gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
           {shown.map((p) => {
-            const off = p.mrp && p.mrp > p.price ? Math.round((1 - p.price / p.mrp) * 100) : 0;
+            const { min, max } = priceRange(p);
+            const from = min !== max;
+            const off = !from && p.mrp && p.mrp > min ? Math.round((1 - min / p.mrp) * 100) : 0;
             return (
               <button key={p.id} onClick={() => setOpen(p)}
                 className="group flex h-full flex-col overflow-hidden rounded-3xl bg-white text-left shadow-md ring-1 ring-denim-sky/60 transition duration-300 hover:-translate-y-1 hover:shadow-xl">
@@ -298,7 +306,8 @@ export default function ProductSection() {
                   <h3 className="break-words font-display text-base font-bold leading-snug">{p.name}</h3>
 
                   <p className="flex flex-wrap items-baseline gap-x-2">
-                    <span className="font-display text-xl font-extrabold text-denim">{inr(p.price)}</span>
+                    {from && <span className="text-xs font-medium text-denim-deep/60">From</span>}
+                    <span className="font-display text-xl font-extrabold text-denim">{inr(min)}</span>
                     {off > 0 && p.mrp && <span className="text-sm text-denim-deep/50 line-through">{inr(p.mrp)}</span>}
                   </p>
 

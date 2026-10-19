@@ -16,6 +16,7 @@ create table if not exists products (
 );
 alter table products add column if not exists stock_status text not null default 'in_stock';
 alter table products add column if not exists colours jsonb not null default '[]';
+alter table products add column if not exists size_prices jsonb not null default '{}';
 
 alter table products drop constraint if exists products_stock_status_chk;
 alter table products add constraint products_stock_status_chk

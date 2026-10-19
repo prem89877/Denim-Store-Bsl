@@ -24,7 +24,7 @@ Admins exist only in the database; there is no sign-up on the website.
 Only a logged-in user listed in the `admins` table can add/edit products, see visit requests or upload photos. Anyone else is blocked by the database itself.
 
 ### Products
-Each product: name, price, old price, category, stock status (In stock / Few left / Out of stock), sizes, details, 1 to 5 photos, and colour options. Each colour has its own name, swatch, "available" switch and up to 5 photos. Stock status can also be changed quickly from the product list.
+Each product: name, price, old price, category, stock status (In stock / Few left / Out of stock), sizes, details, 1 to 5 photos, and colour options. Each colour has its own name, swatch, "available" switch and up to 5 photos. Stock status can also be changed quickly from the product list. Optional **price by size** and **price by colour** can be set (empty = main price). If both apply, the size price wins, then the colour price, then the main price. Run `supabase/schema.sql` again once to add the `size_prices` column.
 
 ## Customer login (email + Google)
 The website header has "Login / Sign up" (only when Supabase is connected). Customers log in with email + password or Google. Their name is filled in automatically when they confirm a shop visit. Logging in is optional.

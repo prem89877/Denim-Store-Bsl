@@ -10,7 +10,7 @@ export const STOCK_LABEL: Record<StockStatus, string> = {
   out_of_stock: "Out of stock",
 };
 
-export type ColourOption = { name: string; hex: string; images: string[]; available: boolean };
+export type ColourOption = { name: string; hex: string; images: string[]; available: boolean; price?: number | null };
 
 export type Product = {
   id: string;
@@ -22,6 +22,7 @@ export type Product = {
   sizes: string[];
   images: string[];
   colours: ColourOption[];
+  sizePrices: Record<string, number>;
   status: StockStatus;
   createdAt: string;
 };
@@ -45,7 +46,7 @@ export const isCloud = supabase !== null;
 type ProductRow = {
   id: string; name: string; price: number; mrp: number | null; category: string;
   description: string | null; sizes: string[] | null; images: string[] | null;
-  stock_status: StockStatus; colours: ColourOption[] | null; created_at: string;
+  stock_status: StockStatus; colours: ColourOption[] | null; size_prices: Record<string, number> | null; created_at: string;
 };
 type VisitRow = {
   id: string; product_id: string | null; product_name: string; size: string; colour: string | null;
@@ -54,7 +55,7 @@ type VisitRow = {
 const fromProduct = (r: ProductRow): Product => ({
   id: r.id, name: r.name, price: Number(r.price), mrp: r.mrp == null ? null : Number(r.mrp),
   category: r.category, description: r.description ?? "", sizes: r.sizes ?? [], images: r.images ?? [],
-  colours: r.colours ?? [], status: r.stock_status, createdAt: r.created_at,
+  colours: r.colours ?? [], sizePrices: r.size_prices ?? {}, status: r.stock_status, createdAt: r.created_at,
 });
 const fromVisit = (r: VisitRow): VisitRequest => ({
   id: r.id, productId: r.product_id ?? "", productName: r.product_name, size: r.size, colour: r.colour ?? "",
@@ -85,6 +86,23 @@ function writeLocal(key: string, value: unknown) {
 
 const channel = () => (typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("denim-visits") : null);
 
+/* ---------- price per size / colour ---------- */
+/* Rule: the price set for the chosen size wins; otherwise the price set for the chosen colour; otherwise the main price. */
+export function priceFor(p: Product, size: string | null, colour: string | null): number {
+  const bySize = size ? p.sizePrices[size] : undefined;
+  if (bySize) return bySize;
+  const byColour = colour ? p.colours.find((c) => c.name === colour)?.price : undefined;
+  if (byColour) return byColour;
+  return p.price;
+}
+
+export function priceRange(p: Product): { min: number; max: number } {
+  const sizes: (string | null)[] = p.sizes.length > 0 ? p.sizes : [null];
+  const colours: (string | null)[] = p.colours.length > 0 ? p.colours.map((c) => c.name) : [null];
+  const all = sizes.flatMap((s) => colours.map((c) => priceFor(p, s, c)));
+  return { min: Math.min(...all), max: Math.max(...all) };
+}
+
 /* ---------- products ---------- */
 export async function listProducts(): Promise<Product[]> {
   if (supabase) {
@@ -92,14 +110,14 @@ export async function listProducts(): Promise<Product[]> {
     if (error) throw new Error(error.message);
     return (data as ProductRow[]).map(fromProduct);
   }
-  return readLocal<Product[]>(LP, []);
+  return readLocal<Product[]>(LP, []).map((p) => ({ ...p, sizePrices: p.sizePrices ?? {}, colours: p.colours ?? [] }));
 }
 
 export async function saveProduct(p: ProductInput): Promise<void> {
   if (supabase) {
     const row = {
       name: p.name, price: p.price, mrp: p.mrp, category: p.category, description: p.description,
-      sizes: p.sizes, images: p.images, colours: p.colours, stock_status: p.status,
+      sizes: p.sizes, images: p.images, colours: p.colours, size_prices: p.sizePrices, stock_status: p.status,
     };
     const { error } = p.id
       ? await supabase.from("products").update(row).eq("id", p.id)

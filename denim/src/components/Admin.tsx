@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
 import { Bell, BellRing, Phone, MessageCircle, Plus, Trash2, Pencil, LogOut, ArrowLeft, Check, ImagePlus, X } from "lucide-react";
 import {
   adminSignIn, adminSignOut, deleteProduct, deleteVisit, isAdminSession, isCloud, listProducts, listVisits,
-  markVisitSeen, saveProduct, savePushSubscription, setStockStatus, subscribeVisits, uploadImage, STOCK_LABEL,
+  markVisitSeen, priceRange, saveProduct, savePushSubscription, setStockStatus, subscribeVisits, uploadImage, STOCK_LABEL,
   type ColourOption, type Product, type ProductInput, type StockStatus, type VisitRequest,
 } from "../lib/store";
 import { askNotifyPermission, notifyAdmin, pushSupported, subscribePush } from "../pwa";
@@ -105,6 +105,9 @@ function ProductForm({ initial, onClose, onSaved }: { initial: Product | null; o
   const [description, setDescription] = useState(initial?.description ?? "");
   const [sizes, setSizes] = useState<string[]>(initial?.sizes ?? []);
   const [custom, setCustom] = useState("");
+  const [sizePrices, setSizePrices] = useState<Record<string, string>>(
+    Object.fromEntries(Object.entries(initial?.sizePrices ?? {}).map(([k, v]) => [k, String(v)]))
+  );
   const [images, setImages] = useState<string[]>(initial?.images ?? []);
   const [colours, setColours] = useState<ColourOption[]>(initial?.colours ?? []);
   const [newColour, setNewColour] = useState("");
@@ -134,10 +137,18 @@ function ProductForm({ initial, onClose, onSaved }: { initial: Product | null; o
     if (!name.trim()) return setErr("Product name is required");
     if (!Number.isFinite(p) || p <= 0) return setErr("Enter a valid price");
     if (images.length < 1) return setErr("Add at least 1 product photo (maximum 5)");
+    const sp: Record<string, number> = {};
+    for (const s of sizes) {
+      const raw = (sizePrices[s] ?? "").trim();
+      if (!raw) continue;
+      const n = Number(raw);
+      if (!Number.isFinite(n) || n <= 0) return setErr(`Enter a valid price for size ${s} or leave it empty`);
+      sp[s] = n;
+    }
     setBusy(true);
     setErr("");
     try {
-      const input: ProductInput = { id: initial?.id, name: name.trim(), category, price: p, mrp: m, description: description.trim(), sizes, images, colours, status };
+      const input: ProductInput = { id: initial?.id, name: name.trim(), category, price: p, mrp: m, description: description.trim(), sizes, sizePrices: sp, images, colours, status };
       await saveProduct(input);
       onSaved();
     } catch (ex) {
@@ -197,6 +208,21 @@ function ProductForm({ initial, onClose, onSaved }: { initial: Product | null; o
           </div>
         </div>
 
+        {sizes.length > 0 && (
+          <div>
+            <p className="text-sm font-medium">Price by size <span className="text-denim-deep/60">(optional, empty = main price)</span></p>
+            <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {sizes.map((s) => (
+                <label key={s} className="block text-xs font-bold">Size {s}
+                  <input value={sizePrices[s] ?? ""} inputMode="numeric" placeholder={price || "Main price"}
+                    onChange={(e) => setSizePrices({ ...sizePrices, [s]: e.target.value.replace(/\D/g, "") })}
+                    className="mt-1 w-full rounded-lg border-2 border-denim-sky px-2 py-1.5 font-normal" />
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div>
           <p className="text-sm font-medium">Colour options <span className="text-denim-deep/60">(each colour can have up to {MAX_COLOUR_IMAGES} photos)</span></p>
           <div className="mt-2 flex flex-wrap gap-2">
@@ -224,6 +250,11 @@ function ProductForm({ initial, onClose, onSaved }: { initial: Product | null; o
                   </label>
                   <button type="button" aria-label={`Remove ${c.name}`} onClick={() => setColours(colours.filter((_, j) => j !== i))} className="rounded-full p-1 text-tag hover:bg-tag/10"><Trash2 size={16} /></button>
                 </div>
+                <label className="mt-3 block text-xs font-bold">Price for {c.name} (optional, empty = main price)
+                  <input value={c.price ?? ""} inputMode="numeric" placeholder={price || "Main price"}
+                    onChange={(e) => { const v = e.target.value.replace(/\D/g, ""); patchColour(i, { price: v ? Number(v) : null }); }}
+                    className="mt-1 w-full rounded-lg border-2 border-denim-sky px-2 py-1.5 font-normal" />
+                </label>
                 <p className="mb-2 mt-3 text-xs text-denim-deep/60">{c.name} photos ({c.images.length}/{MAX_COLOUR_IMAGES}). If empty, product photos are shown.</p>
                 <ImageStrip images={c.images} max={MAX_COLOUR_IMAGES} onChange={(next) => patchColour(i, { images: next })} onError={setErr} label={`Add ${c.name} photo`} />
               </li>
@@ -369,7 +400,7 @@ function Dashboard({ onOut }: { onOut: () => void }) {
                     : <div className="twill h-16 w-16 shrink-0 rounded-lg" />}
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-bold">{p.name}</p>
-                    <p className="text-sm text-denim-deep/70">{inr(p.price)} · {p.sizes.join(", ") || "No sizes"}{p.colours.length > 0 && ` · ${p.colours.length} colours`}</p>
+                    <p className="text-sm text-denim-deep/70">{(() => { const r = priceRange(p); return r.min === r.max ? inr(r.min) : `${inr(r.min)} - ${inr(r.max)}`; })()} · {p.sizes.join(", ") || "No sizes"}{p.colours.length > 0 && ` · ${p.colours.length} colours`}</p>
                     <select value={p.status} onChange={(e) => run(() => setStockStatus(p.id, e.target.value as StockStatus))} aria-label={`Stock status of ${p.name}`}
                       className={`mt-1 rounded-lg border-2 px-2 py-1 text-sm font-bold ${p.status === "in_stock" ? "border-denim-sky" : p.status === "low_stock" ? "border-stitch bg-stitch/20" : "border-tag text-tag"}`}>
                       {(Object.keys(STOCK_LABEL) as StockStatus[]).map((k) => <option key={k} value={k}>{STOCK_LABEL[k]}</option>)}
