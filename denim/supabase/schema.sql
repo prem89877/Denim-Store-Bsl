@@ -134,6 +134,14 @@ create policy "admin manage visit requests" on visit_requests for all to authent
 create policy "admin manage push" on push_subscriptions for all to authenticated
   using (public.is_admin()) with check (public.is_admin());
 
+-- ============ TABLE PERMISSIONS (needed on new Supabase projects) ============
+grant usage on schema public to anon, authenticated;
+grant select on products to anon, authenticated;
+grant insert, update, delete on products to authenticated;
+grant insert on visit_requests to anon;
+grant select, insert, update, delete on visit_requests to authenticated;
+grant select, insert, update, delete on push_subscriptions to authenticated;
+
 -- ============ LIVE ALERTS + PHOTO STORAGE ============
 do $$ begin
   alter publication supabase_realtime add table visit_requests;
