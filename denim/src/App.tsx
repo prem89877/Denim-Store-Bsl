@@ -6,7 +6,7 @@ import ProductSection from "./components/ProductSection";
 import Admin from "./components/Admin";
 import { AccountMenu } from "./components/CustomerAuth";
 import WelcomePrompt from "./components/WelcomePrompt";
-import { useInstallPrompt } from "./pwa";
+import { isIOS, isStandalone, useInstallPrompt } from "./pwa";
 import { PHONE, ADDRESS, MAPS } from "./config";
 
 const stats = [
@@ -38,6 +38,8 @@ function Rivet({ className = "" }: { className?: string }) {
 function Site() {
   const [open, setOpen] = useState(false);
   const install = useInstallPrompt();
+  const [iosTip, setIosTip] = useState(false);
+  const showInstallIcon = install !== null || (isIOS() && !isStandalone());
 
   return (
     <div className="min-h-screen bg-white">
@@ -63,10 +65,23 @@ function Site() {
               <Phone size={16} /> Call us
             </a>
           </div>
-          <button className="md:hidden" onClick={() => setOpen(!open)} aria-label="Toggle menu" aria-expanded={open}>
-            {open ? <X /> : <Menu />}
-          </button>
+          <div className="flex items-center gap-3 md:hidden">
+            {showInstallIcon && (
+              <button onClick={() => (install ? install() : setIosTip((v) => !v))} aria-label="Install app" title="Install app"
+                className="grid h-9 w-9 place-items-center rounded-full bg-denim-deep text-white hover:bg-denim">
+                <Download size={18} />
+              </button>
+            )}
+            <button onClick={() => setOpen(!open)} aria-label="Toggle menu" aria-expanded={open}>
+              {open ? <X /> : <Menu />}
+            </button>
+          </div>
         </div>
+        {iosTip && (
+          <p className="border-t border-denim-sky bg-denim-wash px-5 py-3 text-sm md:hidden">
+            To install: tap the <b>Share</b> button in Safari, then choose <b>Add to Home Screen</b>.
+          </p>
+        )}
         {open && (
           <nav className="flex flex-col gap-1 border-t border-denim-sky bg-white px-5 py-3 md:hidden" aria-label="Mobile">
             {nav.map(([l, h]) => (
