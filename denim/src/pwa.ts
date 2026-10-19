@@ -68,3 +68,8 @@ export function useInstallPrompt(): (() => Promise<void>) | null {
   }, []);
   return ev ? async () => { await ev.prompt(); setEv(null); } : null;
 }
+
+export const isStandalone = () =>
+  window.matchMedia("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
+
+export const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent);

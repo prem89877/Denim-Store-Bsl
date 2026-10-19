@@ -5,6 +5,7 @@ import {
 import ProductSection from "./components/ProductSection";
 import Admin from "./components/Admin";
 import { AccountMenu } from "./components/CustomerAuth";
+import WelcomePrompt from "./components/WelcomePrompt";
 import { useInstallPrompt } from "./pwa";
 import { PHONE, ADDRESS, MAPS } from "./config";
 
@@ -224,6 +225,7 @@ function Site() {
         </div>
         <p className="border-t-2 border-dashed border-stitch/60 py-4 text-center text-sm text-denim-sky">© Denim. All rights reserved.</p>
       </footer>
+      <WelcomePrompt />
     </div>
   );
 }
