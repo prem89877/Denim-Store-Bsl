@@ -36,6 +36,9 @@ Supabase setup:
 
 Make an admin the easy way: sign up on the website with the owner's email, then run `select make_admin('owner@example.com');` and login at `/#/admin`.
 
+## First visit prompt + app name
+A first-time visitor sees a small "Welcome to Denim BSL" card with **Install app** and **Enable notifications** (shown once; iPhone users get the "Add to Home Screen" steps). The installed app is named **Denim BSL** (`public/manifest.webmanifest`). Customer devices that allow notifications are saved in `customer_push_subscriptions` (separate from admin devices). Sending shop updates to customers is not built yet.
+
 ## Phone notifications (shop owner)
 When a customer confirms a visit, the request is saved and a server function pushes a notification (customer name, mobile, product, colour, size) to every admin device.
 

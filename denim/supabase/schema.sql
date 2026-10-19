@@ -48,6 +48,15 @@ create table if not exists push_subscriptions (
   created_at timestamptz not null default now()
 );
 
+-- customer devices that allowed shop notifications (never mixed with admin devices)
+create table if not exists customer_push_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  endpoint text unique not null,
+  p256dh text not null,
+  auth text not null,
+  created_at timestamptz not null default now()
+);
+
 -- ============ ADMINS (only created from SQL) ============
 create table if not exists admins (
   user_id uuid primary key references auth.users(id) on delete cascade,
@@ -114,12 +123,15 @@ revoke all on function public.remove_admin(text) from public, anon, authenticate
 alter table products enable row level security;
 alter table visit_requests enable row level security;
 alter table push_subscriptions enable row level security;
+alter table customer_push_subscriptions enable row level security;
 
 drop policy if exists "public read products" on products;
 drop policy if exists "admin write products" on products;
 drop policy if exists "public send visit request" on visit_requests;
 drop policy if exists "admin manage visit requests" on visit_requests;
 drop policy if exists "admin manage push" on push_subscriptions;
+drop policy if exists "customer add push" on customer_push_subscriptions;
+drop policy if exists "admin read customer push" on customer_push_subscriptions;
 
 create policy "public read products" on products for select using (true);
 create policy "admin write products" on products for all to authenticated
@@ -134,6 +146,10 @@ create policy "admin manage visit requests" on visit_requests for all to authent
 create policy "admin manage push" on push_subscriptions for all to authenticated
   using (public.is_admin()) with check (public.is_admin());
 
+create policy "customer add push" on customer_push_subscriptions for insert to anon, authenticated with check (true);
+create policy "admin read customer push" on customer_push_subscriptions for all to authenticated
+  using (public.is_admin()) with check (public.is_admin());
+
 -- ============ TABLE PERMISSIONS (needed on new Supabase projects) ============
 grant usage on schema public to anon, authenticated;
 grant select on products to anon, authenticated;
@@ -141,6 +157,8 @@ grant insert, update, delete on products to authenticated;
 grant insert on visit_requests to anon;
 grant select, insert, update, delete on visit_requests to authenticated;
 grant select, insert, update, delete on push_subscriptions to authenticated;
+grant insert on customer_push_subscriptions to anon;
+grant select, insert, update, delete on customer_push_subscriptions to authenticated;
 
 -- ============ LIVE ALERTS + PHOTO STORAGE ============
 do $$ begin

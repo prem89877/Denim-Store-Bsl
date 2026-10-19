@@ -290,7 +290,7 @@ function Dashboard({ onOut }: { onOut: () => void }) {
   const unseen = visits.filter((v) => v.status === "new").length;
   useEffect(() => {
     document.title = unseen ? `(${unseen}) Denim Admin` : "Denim Admin";
-    return () => { document.title = "Denim | Bhusawal"; };
+    return () => { document.title = "Denim BSL | Bhusawal"; };
   }, [unseen]);
 
   async function run(fn: () => Promise<void>) {

@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Shirt, X, Navigation, MessageCircle, CheckCircle2, Store } from "lucide-react";
+import { Shirt, X, Navigation, MessageCircle, CheckCircle2, Store, ChevronRight } from "lucide-react";
 import { listProducts, createVisit, STOCK_LABEL, type Product } from "../lib/store";
 import { inr, validMobile } from "../lib/utils";
 import { useCustomer } from "./CustomerAuth";
@@ -242,30 +242,43 @@ export default function ProductSection() {
       {!products && !error && <p className="mt-10 text-denim">Loading styles...</p>}
       {products && shown.length === 0 && <p className="mt-10 rounded-2xl bg-denim-wash p-8 text-denim">New styles are coming soon. Visit the store to see our full range.</p>}
 
-      <div className="mt-8 grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-3">
-        {shown.map((p) => (
-          <button key={p.id} onClick={() => setOpen(p)}
-            className="seam group overflow-hidden rounded-2xl bg-white text-left transition hover:-translate-y-1 hover:shadow-xl">
-            <div className="relative">
-              <Photo src={p.images[0]} alt={p.name} className="aspect-[4/5] w-full" />
-              {p.status !== "in_stock" && <span className={`absolute left-3 top-3 rounded px-2 py-1 text-xs font-bold ${p.status === "out_of_stock" ? "bg-tag text-white" : "bg-stitch text-denim-deep"}`}>{STOCK_LABEL[p.status]}</span>}
-            </div>
-            <div className="p-4">
-              <p className="text-xs font-medium text-rivet">{p.category}</p>
-              <h3 className="font-display text-lg font-bold leading-tight">{p.name}</h3>
-              <p className="mt-1 flex items-baseline gap-2">
-                <span className="font-bold text-denim">{inr(p.price)}</span>
-                {p.mrp && p.mrp > p.price && <span className="text-sm text-denim-deep/50 line-through">{inr(p.mrp)}</span>}
-              </p>
-              {p.colours.length > 0 && (
-                <div className="mt-2 flex gap-1.5" aria-label="Available colours">
-                  {p.colours.slice(0, 6).map((c) => <span key={c.name} title={c.name} className={`h-4 w-4 rounded-full border border-denim-sky ${c.available ? "" : "opacity-30"}`} style={{ backgroundColor: c.hex }} />)}
+      <div className="mt-8 grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
+        {shown.map((p) => {
+          const off = p.mrp && p.mrp > p.price ? Math.round((1 - p.price / p.mrp) * 100) : 0;
+          return (
+            <button key={p.id} onClick={() => setOpen(p)}
+              className="group flex flex-col overflow-hidden rounded-2xl border border-denim-sky/70 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
+              <div className="relative aspect-square overflow-hidden bg-denim-wash">
+                <Photo src={p.images[0]} alt={p.name} className="h-full w-full transition duration-500 group-hover:scale-105" />
+                {p.status !== "in_stock" && (
+                  <span className={`absolute left-2 top-2 rounded-full px-2.5 py-1 text-[11px] font-bold ${p.status === "out_of_stock" ? "bg-tag text-white" : "bg-stitch text-denim-deep"}`}>
+                    {STOCK_LABEL[p.status]}
+                  </span>
+                )}
+                {off > 0 && <span className="absolute right-2 top-2 rounded-full bg-denim-deep px-2.5 py-1 text-[11px] font-bold text-white">{off}% OFF</span>}
+              </div>
+              <div className="flex flex-1 flex-col p-3 sm:p-4">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-rivet">{p.category}</p>
+                <h3 className="mt-0.5 line-clamp-2 min-h-[2.5rem] font-display text-[15px] font-bold leading-tight sm:text-base">{p.name}</h3>
+                <p className="mt-2 flex flex-wrap items-baseline gap-x-2">
+                  <span className="font-display text-lg font-extrabold text-denim">{inr(p.price)}</span>
+                  {off > 0 && p.mrp && <span className="text-xs text-denim-deep/50 line-through">{inr(p.mrp)}</span>}
+                </p>
+                <div className="mt-auto flex items-center justify-between pt-3">
+                  <div className="flex items-center gap-1" aria-label="Available colours">
+                    {p.colours.slice(0, 4).map((c) => (
+                      <span key={c.name} title={c.name} className={`h-4 w-4 rounded-full border border-black/10 ${c.available ? "" : "opacity-30"}`} style={{ backgroundColor: c.hex }} />
+                    ))}
+                    {p.colours.length > 4 && <span className="text-xs text-denim-deep/60">+{p.colours.length - 4}</span>}
+                  </div>
+                  <span className="inline-flex items-center text-xs font-bold text-denim group-hover:text-rivet">
+                    Select size <ChevronRight size={14} />
+                  </span>
                 </div>
-              )}
-              {p.sizes.length > 0 && <p className="mt-1 truncate text-xs text-denim-deep/70">Sizes: {p.sizes.join(", ")}</p>}
-            </div>
-          </button>
-        ))}
+              </div>
+            </button>
+          );
+        })}
       </div>
 
       {open && <ProductModal p={open} onClose={() => setOpen(null)} />}

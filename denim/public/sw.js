@@ -1,4 +1,4 @@
-const VERSION = "denim-v1";
+const VERSION = "denim-v2";
 const SHELL = ["/", "/manifest.webmanifest", "/denim-logo.png", "/icon-192.png", "/favicon-32.png"];
 
 self.addEventListener("install", (e) => {
@@ -18,6 +18,11 @@ self.addEventListener("fetch", (e) => {
   const url = new URL(req.url);
   if (req.method !== "GET" || url.origin !== self.location.origin) return;
 
+  // manifest: always try the network first so a new app name/icon is picked up
+  if (url.pathname === "/manifest.webmanifest") {
+    e.respondWith(fetch(req).catch(() => caches.match(req)));
+    return;
+  }
   // pages: network first, fall back to cached shell when offline
   if (req.mode === "navigate") {
     e.respondWith(fetch(req).catch(() => caches.match("/")));

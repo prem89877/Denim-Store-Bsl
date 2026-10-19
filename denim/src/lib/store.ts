@@ -251,6 +251,15 @@ export async function savePushSubscription(sub: PushSubscriptionJSON): Promise<v
   if (error) throw new Error(error.message);
 }
 
+/* ---------- customer push subscriptions (kept separate from the admin devices) ---------- */
+export async function saveCustomerPush(sub: PushSubscriptionJSON): Promise<void> {
+  if (!supabase || !sub.endpoint || !sub.keys) return;
+  const { error } = await supabase
+    .from("customer_push_subscriptions")
+    .insert({ endpoint: sub.endpoint, p256dh: sub.keys.p256dh, auth: sub.keys.auth });
+  if (error && error.code !== "23505") throw new Error(error.message);
+}
+
 /* ---------- customer accounts (email + Google) ---------- */
 export type Customer = { id: string; email: string; name: string };
 
