@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Shirt, X, Navigation, MessageCircle, CheckCircle2, Store } from "lucide-react";
 import { listProducts, createVisit, STOCK_LABEL, type Product } from "../lib/store";
 import { inr, validMobile } from "../lib/utils";
+import { useCustomer } from "./CustomerAuth";
 import { ADDRESS, CATEGORIES, MAPS, WHATSAPP } from "../config";
 
 const CUSTOMER_KEY = "denim.customer";
@@ -33,6 +34,10 @@ function ProductModal({ p, onClose }: { p: Product; onClose: () => void }) {
   const [mobile, setMobile] = useState(saved.mobile ?? "");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
+  const customer = useCustomer();
+  useEffect(() => {
+    if (customer && !name) setName(customer.name);
+  }, [customer]);
 
   const chosen = p.colours.find((c) => c.name === colour);
   const photos = chosen && chosen.images.length > 0 ? chosen.images : p.images;

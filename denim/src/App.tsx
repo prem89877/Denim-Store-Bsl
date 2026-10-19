@@ -4,6 +4,7 @@ import {
 } from "lucide-react";
 import ProductSection from "./components/ProductSection";
 import Admin from "./components/Admin";
+import { AccountMenu } from "./components/CustomerAuth";
 import { useInstallPrompt } from "./pwa";
 import { PHONE, ADDRESS, MAPS } from "./config";
 
@@ -51,6 +52,7 @@ function Site() {
             ))}
           </nav>
           <div className="hidden items-center gap-3 md:flex">
+            <AccountMenu />
             {install && (
               <button onClick={install} className="inline-flex items-center gap-2 rounded-full border-2 border-denim-deep px-4 py-2 font-medium hover:bg-denim-deep hover:text-white">
                 <Download size={16} /> Install app
@@ -69,6 +71,7 @@ function Site() {
             {nav.map(([l, h]) => (
               <a key={h} href={h} onClick={() => setOpen(false)} className="py-2 font-medium text-denim">{l}</a>
             ))}
+            <AccountMenu mobile />
             {install && (
               <button onClick={install} className="flex items-center gap-2 py-2 text-left font-medium text-denim"><Download size={16} /> Install app</button>
             )}

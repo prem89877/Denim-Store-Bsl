@@ -1,3 +1,4 @@
+import type { User } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
 import { DEMO_ADMIN_PASSCODE } from "../config";
 import { blobToDataUrl, compressImage } from "./utils";
@@ -248,4 +249,53 @@ export async function savePushSubscription(sub: PushSubscriptionJSON): Promise<v
     .from("push_subscriptions")
     .upsert({ endpoint: sub.endpoint, p256dh: sub.keys.p256dh, auth: sub.keys.auth }, { onConflict: "endpoint" });
   if (error) throw new Error(error.message);
+}
+
+/* ---------- customer accounts (email + Google) ---------- */
+export type Customer = { id: string; email: string; name: string };
+
+const toCustomer = (u: User): Customer => {
+  const meta = u.user_metadata as { full_name?: string; name?: string };
+  const email = u.email ?? "";
+  return { id: u.id, email, name: meta.full_name || meta.name || email.split("@")[0] };
+};
+
+export async function getCustomer(): Promise<Customer | null> {
+  if (!supabase) return null;
+  const { data } = await supabase.auth.getSession();
+  return data.session ? toCustomer(data.session.user) : null;
+}
+
+export function onAuthChange(cb: () => void): () => void {
+  if (!supabase) return () => undefined;
+  const { data } = supabase.auth.onAuthStateChange(() => cb());
+  return () => data.subscription.unsubscribe();
+}
+
+/* returns "confirm" when the customer must first click the link sent to their email */
+export async function customerSignUp(name: string, email: string, password: string): Promise<"done" | "confirm"> {
+  if (!supabase) throw new Error("Login is not available right now");
+  const { data, error } = await supabase.auth.signUp({
+    email, password,
+    options: { data: { full_name: name }, emailRedirectTo: window.location.origin },
+  });
+  if (error) throw new Error(error.message);
+  if (data.user && data.user.identities?.length === 0) throw new Error("This email is already registered. Please login.");
+  return data.session ? "done" : "confirm";
+}
+
+export async function customerSignIn(email: string, password: string): Promise<void> {
+  if (!supabase) throw new Error("Login is not available right now");
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) throw new Error(error.message);
+}
+
+export async function customerGoogle(): Promise<void> {
+  if (!supabase) throw new Error("Login is not available right now");
+  const { error } = await supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo: window.location.origin } });
+  if (error) throw new Error(error.message);
+}
+
+export async function customerSignOut(): Promise<void> {
+  if (supabase) await supabase.auth.signOut();
 }

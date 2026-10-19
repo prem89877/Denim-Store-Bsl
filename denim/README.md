@@ -13,7 +13,7 @@ Shop details (phone, address, map, categories, sizes, colour presets): `src/conf
 Admins exist only in the database; there is no sign-up on the website.
 
 ### One-time setup (Supabase)
-1. Create a project at supabase.com. Authentication -> Providers -> Email: turn OFF "Allow new users to sign up".
+1. Create a project at supabase.com. Keep "Allow new users to sign up" ON (customers sign up on the website; they are never admins unless you run `make_admin` in SQL).
 2. SQL Editor -> paste `supabase/schema.sql` -> Run (safe to run again).
 3. Copy `.env.example` to `.env`, fill `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (Project Settings -> API). Add the same values in Netlify/Vercel environment settings.
 
@@ -25,6 +25,16 @@ Only a logged-in user listed in the `admins` table can add/edit products, see vi
 
 ### Products
 Each product: name, price, old price, category, stock status (In stock / Few left / Out of stock), sizes, details, 1 to 5 photos, and colour options. Each colour has its own name, swatch, "available" switch and up to 5 photos. Stock status can also be changed quickly from the product list.
+
+## Customer login (email + Google)
+The website header has "Login / Sign up" (only when Supabase is connected). Customers log in with email + password or Google. Their name is filled in automatically when they confirm a shop visit. Logging in is optional.
+
+Supabase setup:
+1. Authentication -> URL Configuration: set **Site URL** to your Vercel URL and add it under **Redirect URLs**.
+2. Google: Google Cloud Console -> APIs & Services -> Credentials -> Create OAuth client ID (Web application). Add authorized redirect URI `https://YOUR-PROJECT-REF.supabase.co/auth/v1/callback`. Then Supabase -> Authentication -> Providers -> Google: enable and paste Client ID + Client Secret.
+3. Email signups send a confirmation mail. Supabase's built-in mail sender is limited to a few emails per hour; for real traffic add your own SMTP (Authentication -> Emails -> SMTP) or turn off "Confirm email".
+
+Make an admin the easy way: sign up on the website with the owner's email, then run `select make_admin('owner@example.com');` and login at `/#/admin`.
 
 ## Phone notifications (shop owner)
 When a customer confirms a visit, the request is saved and a server function pushes a notification (customer name, mobile, product, colour, size) to every admin device.
