@@ -2,11 +2,12 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
 import { Bell, BellRing, Phone, MessageCircle, Plus, Trash2, Pencil, LogOut, ArrowLeft, Check, ImagePlus, X } from "lucide-react";
 import {
   adminSignIn, adminSignOut, deleteProduct, deleteVisit, isAdminSession, isCloud, listProducts, listVisits,
-  markVisitSeen, saveProduct, subscribeVisits, uploadImage, type Product, type ProductInput, type VisitRequest,
+  markVisitSeen, saveProduct, savePushSubscription, setStockStatus, subscribeVisits, uploadImage, STOCK_LABEL,
+  type ColourOption, type Product, type ProductInput, type StockStatus, type VisitRequest,
 } from "../lib/store";
-import { askNotifyPermission, notifyAdmin } from "../pwa";
+import { askNotifyPermission, notifyAdmin, pushSupported, subscribePush } from "../pwa";
 import { inr, when } from "../lib/utils";
-import { CATEGORIES, SIZE_PRESETS } from "../config";
+import { CATEGORIES, COLOUR_PRESETS, MAX_COLOUR_IMAGES, MAX_PRODUCT_IMAGES, SIZE_PRESETS } from "../config";
 
 const field = "mt-1 w-full rounded-lg border-2 border-denim-sky bg-white px-3 py-2.5";
 
@@ -55,6 +56,47 @@ function Login({ onDone }: { onDone: () => void }) {
   );
 }
 
+function ImageStrip({ images, max, onChange, onError, label }: {
+  images: string[]; max: number; onChange: (next: string[]) => void; onError: (m: string) => void; label: string;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function add(files: FileList | null) {
+    if (!files) return;
+    setBusy(true);
+    try {
+      const urls: string[] = [];
+      for (const f of Array.from(files).slice(0, max - images.length)) urls.push(await uploadImage(f));
+      onChange([...images, ...urls]);
+    } catch (ex) {
+      onError(ex instanceof Error ? ex.message : "Upload failed");
+    } finally {
+      setBusy(false);
+      if (ref.current) ref.current.value = "";
+    }
+  }
+
+  return (
+    <div className="flex flex-wrap gap-3">
+      {images.map((u, i) => (
+        <div key={u.slice(-24) + i} className="relative h-20 w-20 overflow-hidden rounded-lg border-2 border-denim-sky">
+          <img src={u} alt="" className="h-full w-full object-cover" />
+          <button type="button" aria-label="Remove photo" onClick={() => onChange(images.filter((_, j) => j !== i))}
+            className="absolute right-0.5 top-0.5 rounded-full bg-white/90 p-0.5"><X size={14} /></button>
+        </div>
+      ))}
+      {images.length < max && (
+        <button type="button" onClick={() => ref.current?.click()} disabled={busy} aria-label={label}
+          className="grid h-20 w-20 place-items-center rounded-lg border-2 border-dashed border-denim text-denim hover:bg-denim-wash disabled:opacity-50">
+          {busy ? <span className="text-xs">Wait...</span> : <ImagePlus />}
+        </button>
+      )}
+      <input ref={ref} type="file" accept="image/*" multiple hidden onChange={(e) => add(e.target.files)} />
+    </div>
+  );
+}
+
 function ProductForm({ initial, onClose, onSaved }: { initial: Product | null; onClose: () => void; onSaved: () => void }) {
   const [name, setName] = useState(initial?.name ?? "");
   const [category, setCategory] = useState(initial?.category ?? CATEGORIES[0]);
@@ -64,29 +106,26 @@ function ProductForm({ initial, onClose, onSaved }: { initial: Product | null; o
   const [sizes, setSizes] = useState<string[]>(initial?.sizes ?? []);
   const [custom, setCustom] = useState("");
   const [images, setImages] = useState<string[]>(initial?.images ?? []);
-  const [inStock, setInStock] = useState(initial?.inStock ?? true);
+  const [colours, setColours] = useState<ColourOption[]>(initial?.colours ?? []);
+  const [newColour, setNewColour] = useState("");
+  const [newHex, setNewHex] = useState("#2F5486");
+  const [status, setStatus] = useState<StockStatus>(initial?.status ?? "in_stock");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
 
   const toggle = (s: string) => setSizes((cur) => (cur.includes(s) ? cur.filter((x) => x !== s) : [...cur, s]));
   const sizeOptions = [...SIZE_PRESETS, ...sizes.filter((s) => !SIZE_PRESETS.includes(s))];
 
-  async function addFiles(files: FileList | null) {
-    if (!files) return;
-    setBusy(true);
+  function addColour(n: string, hex: string) {
+    const nm = n.trim();
+    if (!nm) return;
+    if (colours.some((c) => c.name.toLowerCase() === nm.toLowerCase())) return setErr(`${nm} is already added`);
     setErr("");
-    try {
-      const urls: string[] = [];
-      for (const f of Array.from(files).slice(0, 5 - images.length)) urls.push(await uploadImage(f));
-      setImages((cur) => [...cur, ...urls]);
-    } catch (ex) {
-      setErr(ex instanceof Error ? ex.message : "Upload failed");
-    } finally {
-      setBusy(false);
-      if (fileRef.current) fileRef.current.value = "";
-    }
+    setColours([...colours, { name: nm, hex, images: [], available: true }]);
+    setNewColour("");
   }
+  const patchColour = (i: number, patch: Partial<ColourOption>) =>
+    setColours((cur) => cur.map((c, j) => (j === i ? { ...c, ...patch } : c)));
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -94,10 +133,11 @@ function ProductForm({ initial, onClose, onSaved }: { initial: Product | null; o
     const m = mrp ? Number(mrp) : null;
     if (!name.trim()) return setErr("Product name is required");
     if (!Number.isFinite(p) || p <= 0) return setErr("Enter a valid price");
+    if (images.length < 1) return setErr("Add at least 1 product photo (maximum 5)");
     setBusy(true);
     setErr("");
     try {
-      const input: ProductInput = { id: initial?.id, name: name.trim(), category, price: p, mrp: m, description: description.trim(), sizes, images, inStock };
+      const input: ProductInput = { id: initial?.id, name: name.trim(), category, price: p, mrp: m, description: description.trim(), sizes, images, colours, status };
       await saveProduct(input);
       onSaved();
     } catch (ex) {
@@ -109,30 +149,15 @@ function ProductForm({ initial, onClose, onSaved }: { initial: Product | null; o
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-denim-deep/70 sm:items-center sm:p-4" onClick={onClose}>
       <form onSubmit={submit} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Product form"
-        className="max-h-[94vh] w-full max-w-xl space-y-4 overflow-y-auto rounded-t-3xl bg-white p-6 sm:rounded-3xl">
+        className="max-h-[94vh] w-full max-w-xl space-y-5 overflow-y-auto rounded-t-3xl bg-white p-6 sm:rounded-3xl">
         <div className="flex items-center justify-between">
           <h2 className="font-display text-2xl font-extrabold">{initial ? "Edit product" : "Add product"}</h2>
           <button type="button" onClick={onClose} aria-label="Close" className="rounded-full p-1 hover:bg-denim-wash"><X /></button>
         </div>
 
         <div>
-          <p className="text-sm font-medium">Photos (up to 5)</p>
-          <div className="mt-2 flex flex-wrap gap-3">
-            {images.map((u, i) => (
-              <div key={u.slice(-24) + i} className="relative h-20 w-20 overflow-hidden rounded-lg border-2 border-denim-sky">
-                <img src={u} alt="" className="h-full w-full object-cover" />
-                <button type="button" aria-label="Remove photo" onClick={() => setImages((c) => c.filter((_, j) => j !== i))}
-                  className="absolute right-0.5 top-0.5 rounded-full bg-white/90 p-0.5"><X size={14} /></button>
-              </div>
-            ))}
-            {images.length < 5 && (
-              <button type="button" onClick={() => fileRef.current?.click()} disabled={busy}
-                className="grid h-20 w-20 place-items-center rounded-lg border-2 border-dashed border-denim text-denim hover:bg-denim-wash disabled:opacity-50">
-                <ImagePlus />
-              </button>
-            )}
-            <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={(e) => addFiles(e.target.files)} />
-          </div>
+          <p className="text-sm font-medium">Product photos <span className="text-denim-deep/60">({images.length}/{MAX_PRODUCT_IMAGES}, minimum 1)</span></p>
+          <div className="mt-2"><ImageStrip images={images} max={MAX_PRODUCT_IMAGES} onChange={setImages} onError={setErr} label="Add product photo" /></div>
         </div>
 
         <label className="block text-sm font-medium">Product name
@@ -151,6 +176,11 @@ function ProductForm({ initial, onClose, onSaved }: { initial: Product | null; o
             {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
           </select>
         </label>
+        <label className="block text-sm font-medium">Stock status
+          <select value={status} onChange={(e) => setStatus(e.target.value as StockStatus)} className={field}>
+            {(Object.keys(STOCK_LABEL) as StockStatus[]).map((k) => <option key={k} value={k}>{STOCK_LABEL[k]}</option>)}
+          </select>
+        </label>
 
         <div>
           <p className="text-sm font-medium">Available sizes</p>
@@ -167,11 +197,42 @@ function ProductForm({ initial, onClose, onSaved }: { initial: Product | null; o
           </div>
         </div>
 
-        <label className="block text-sm font-medium">Description
-          <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className={field} />
-        </label>
-        <label className="flex items-center gap-3 font-medium">
-          <input type="checkbox" checked={inStock} onChange={(e) => setInStock(e.target.checked)} className="h-5 w-5" /> In stock
+        <div>
+          <p className="text-sm font-medium">Colour options <span className="text-denim-deep/60">(each colour can have up to {MAX_COLOUR_IMAGES} photos)</span></p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {COLOUR_PRESETS.filter((c) => !colours.some((x) => x.name === c.name)).map((c) => (
+              <button type="button" key={c.name} onClick={() => addColour(c.name, c.hex)}
+                className="inline-flex items-center gap-2 rounded-full border-2 border-denim-sky px-3 py-1 text-sm font-medium hover:bg-denim-wash">
+                <span className="h-4 w-4 rounded-full border border-black/10" style={{ backgroundColor: c.hex }} /> {c.name}
+              </button>
+            ))}
+          </div>
+          <div className="mt-2 flex gap-2">
+            <input type="color" value={newHex} onChange={(e) => setNewHex(e.target.value)} aria-label="Colour swatch" className="h-11 w-12 shrink-0 rounded-lg border-2 border-denim-sky bg-white p-1" />
+            <input value={newColour} onChange={(e) => setNewColour(e.target.value)} placeholder="Custom colour name" className="w-full rounded-lg border-2 border-denim-sky px-3 py-2" />
+            <button type="button" onClick={() => addColour(newColour, newHex)} className="rounded-lg bg-denim-wash px-4 font-bold">Add</button>
+          </div>
+
+          <ul className="mt-3 space-y-3">
+            {colours.map((c, i) => (
+              <li key={c.name} className="rounded-xl border-2 border-denim-sky p-3">
+                <div className="flex items-center gap-3">
+                  <input type="color" value={c.hex} onChange={(e) => patchColour(i, { hex: e.target.value })} aria-label={`${c.name} swatch`} className="h-9 w-10 shrink-0 rounded border border-denim-sky bg-white p-0.5" />
+                  <p className="flex-1 font-bold">{c.name}</p>
+                  <label className="flex items-center gap-2 text-sm font-medium">
+                    <input type="checkbox" checked={c.available} onChange={(e) => patchColour(i, { available: e.target.checked })} className="h-4 w-4" /> Available
+                  </label>
+                  <button type="button" aria-label={`Remove ${c.name}`} onClick={() => setColours(colours.filter((_, j) => j !== i))} className="rounded-full p-1 text-tag hover:bg-tag/10"><Trash2 size={16} /></button>
+                </div>
+                <p className="mb-2 mt-3 text-xs text-denim-deep/60">{c.name} photos ({c.images.length}/{MAX_COLOUR_IMAGES}). If empty, product photos are shown.</p>
+                <ImageStrip images={c.images} max={MAX_COLOUR_IMAGES} onChange={(next) => patchColour(i, { images: next })} onError={setErr} label={`Add ${c.name} photo`} />
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <label className="block text-sm font-medium">Details / description
+          <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className={field} placeholder="Fabric, fit, wash, care..." />
         </label>
 
         {err && <p role="alert" className="text-sm font-medium text-tag">{err}</p>}
@@ -204,12 +265,19 @@ function Dashboard({ onOut }: { onOut: () => void }) {
 
   useEffect(() => { void reload(); }, [reload]);
 
+  /* keep this device registered for push notifications once permission was given */
+  useEffect(() => {
+    if (perm === "granted" && pushSupported()) {
+      subscribePush().then((sub) => (sub ? savePushSubscription(sub) : undefined)).catch(() => undefined);
+    }
+  }, [perm]);
+
   useEffect(() => {
     return subscribeVisits((v) => {
       setVisits((cur) => (cur.some((x) => x.id === v.id) ? cur : [v, ...cur]));
       setToast(v);
       navigator.vibrate?.(200);
-      void notifyAdmin("New shop visit request", `${v.customerName} (${v.mobile}) - ${v.productName}, size ${v.size}`);
+      void notifyAdmin("New shop visit request", `${v.customerName} (${v.mobile}) - ${v.productName}${v.colour ? ", " + v.colour : ""}, size ${v.size}`);
     });
   }, []);
 
@@ -243,10 +311,14 @@ function Dashboard({ onOut }: { onOut: () => void }) {
         {perm !== "granted" && perm !== "unsupported" && (
           <button onClick={async () => setPerm(await askNotifyPermission())}
             className="mb-5 flex w-full items-center gap-3 rounded-2xl bg-stitch p-4 text-left font-bold text-denim-deep">
-            <Bell /> Tap to allow notifications for new shop visit requests
+            <Bell /> Tap to turn on notifications for new shop visit requests
           </button>
         )}
-        {perm === "granted" && <p className="mb-5 flex items-center gap-2 text-sm text-denim"><BellRing size={16} /> Notifications are on</p>}
+        {perm === "granted" && (
+          <p className="mb-5 flex items-center gap-2 text-sm text-denim">
+            <BellRing size={16} /> Notifications are on{!pushSupported() && " (works while this app is open; phone push needs the VAPID key, see README)"}
+          </p>
+        )}
         {error && <p role="alert" className="mb-4 rounded-lg bg-white p-3 text-tag">{error}</p>}
 
         <div className="flex gap-2">
@@ -271,7 +343,7 @@ function Dashboard({ onOut }: { onOut: () => void }) {
                   </div>
                   <p className="text-right text-sm text-denim-deep/70">{when(v.createdAt)}</p>
                 </div>
-                <p className="mt-2">Wants to visit for <b>{v.productName}</b>, size <b>{v.size}</b></p>
+                <p className="mt-2">Wants to visit for <b>{v.productName}</b>{v.colour && <>, colour <b>{v.colour}</b></>}, size <b>{v.size}</b></p>
                 <div className="mt-4 flex flex-wrap gap-2">
                   <a href={`tel:${v.mobile}`} className="inline-flex items-center gap-2 rounded-full bg-denim-deep px-4 py-2 text-sm font-bold text-white"><Phone size={14} /> Call</a>
                   <a href={`https://wa.me/91${v.mobile}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full border-2 border-denim-deep px-4 py-2 text-sm font-bold"><MessageCircle size={14} /> WhatsApp</a>
@@ -297,7 +369,11 @@ function Dashboard({ onOut }: { onOut: () => void }) {
                     : <div className="twill h-16 w-16 shrink-0 rounded-lg" />}
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-bold">{p.name}</p>
-                    <p className="text-sm text-denim-deep/70">{inr(p.price)} · {p.sizes.join(", ") || "No sizes"} {!p.inStock && <span className="font-bold text-tag">· Out of stock</span>}</p>
+                    <p className="text-sm text-denim-deep/70">{inr(p.price)} · {p.sizes.join(", ") || "No sizes"}{p.colours.length > 0 && ` · ${p.colours.length} colours`}</p>
+                    <select value={p.status} onChange={(e) => run(() => setStockStatus(p.id, e.target.value as StockStatus))} aria-label={`Stock status of ${p.name}`}
+                      className={`mt-1 rounded-lg border-2 px-2 py-1 text-sm font-bold ${p.status === "in_stock" ? "border-denim-sky" : p.status === "low_stock" ? "border-stitch bg-stitch/20" : "border-tag text-tag"}`}>
+                      {(Object.keys(STOCK_LABEL) as StockStatus[]).map((k) => <option key={k} value={k}>{STOCK_LABEL[k]}</option>)}
+                    </select>
                   </div>
                   <button onClick={() => setEditing(p)} aria-label="Edit" className="rounded-full p-2 hover:bg-denim-wash"><Pencil size={18} /></button>
                   <button onClick={() => confirm(`Delete ${p.name}?`) && run(() => deleteProduct(p.id))} aria-label="Delete" className="rounded-full p-2 text-tag hover:bg-tag/10"><Trash2 size={18} /></button>
@@ -312,7 +388,7 @@ function Dashboard({ onOut }: { onOut: () => void }) {
         <div role="status" className="fixed inset-x-4 top-4 z-[60] mx-auto max-w-md rounded-2xl bg-tag p-4 text-white shadow-2xl">
           <p className="flex items-center gap-2 font-bold"><BellRing size={18} /> New shop visit request</p>
           <p className="mt-1">{toast.customerName} · {toast.mobile}</p>
-          <p className="text-sm text-white/90">{toast.productName}, size {toast.size}</p>
+          <p className="text-sm text-white/90">{toast.productName}{toast.colour ? `, ${toast.colour}` : ""}, size {toast.size}</p>
         </div>
       )}
 

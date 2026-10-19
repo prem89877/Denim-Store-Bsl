@@ -8,6 +8,31 @@ export function registerSW() {
   }
 }
 
+const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
+
+function keyToBuffer(b64url: string): ArrayBuffer {
+  const pad = "=".repeat((4 - (b64url.length % 4)) % 4);
+  const raw = atob((b64url + pad).replace(/-/g, "+").replace(/_/g, "/"));
+  const arr = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+  return arr.buffer as ArrayBuffer;
+}
+
+export const pushSupported = () =>
+  "serviceWorker" in navigator && "PushManager" in window && "Notification" in window && Boolean(VAPID_PUBLIC_KEY);
+
+/* subscribe this device to push (needs notification permission). Returns null when push is not available. */
+export async function subscribePush(): Promise<PushSubscriptionJSON | null> {
+  if (!pushSupported()) return null;
+  const reg = await navigator.serviceWorker.ready;
+  const existing = await reg.pushManager.getSubscription();
+  const sub = existing ?? (await reg.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: keyToBuffer(VAPID_PUBLIC_KEY as string),
+  }));
+  return sub.toJSON();
+}
+
 export async function askNotifyPermission(): Promise<NotificationPermission | "unsupported"> {
   if (!("Notification" in window)) return "unsupported";
   return Notification.requestPermission();

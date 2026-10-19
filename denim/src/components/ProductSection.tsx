@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Shirt, X, Navigation, MessageCircle, CheckCircle2, Store } from "lucide-react";
-import { listProducts, createVisit, type Product } from "../lib/store";
+import { listProducts, createVisit, STOCK_LABEL, type Product } from "../lib/store";
 import { inr, validMobile } from "../lib/utils";
 import { ADDRESS, CATEGORIES, MAPS, WHATSAPP } from "../config";
 
@@ -27,11 +27,24 @@ function ProductModal({ p, onClose }: { p: Product; onClose: () => void }) {
   const saved = readCustomer();
   const [img, setImg] = useState(0);
   const [size, setSize] = useState<string | null>(null);
+  const [colour, setColour] = useState<string | null>(null);
   const [step, setStep] = useState<"pick" | "form" | "done">("pick");
   const [name, setName] = useState(saved.name ?? "");
   const [mobile, setMobile] = useState(saved.mobile ?? "");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
+
+  const chosen = p.colours.find((c) => c.name === colour);
+  const photos = chosen && chosen.images.length > 0 ? chosen.images : p.images;
+  const needsColour = p.colours.length > 0;
+  const needsSize = p.sizes.length > 0;
+  const ready = (!needsSize || size !== null) && (!needsColour || colour !== null);
+  const soldOut = p.status === "out_of_stock";
+
+  function pickColour(name: string) {
+    setColour(name);
+    setImg(0);
+  }
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -50,11 +63,12 @@ function ProductModal({ p, onClose }: { p: Product; onClose: () => void }) {
     const m = mobile.replace(/\D/g, "").slice(-10);
     if (n.length < 2) return setErr("Please enter your name");
     if (!validMobile(m)) return setErr("Please enter a valid 10 digit mobile number");
-    if (!size) return setErr("Please select a size");
+    if (needsSize && !size) return setErr("Please select a size");
+    if (needsColour && !colour) return setErr("Please select a colour");
     setErr("");
     setBusy(true);
     try {
-      await createVisit({ productId: p.id, productName: p.name, size, customerName: n, mobile: m });
+      await createVisit({ productId: p.id, productName: p.name, size: size ?? "Any", colour: colour ?? "", customerName: n, mobile: m });
       localStorage.setItem(CUSTOMER_KEY, JSON.stringify({ name: n, mobile: m }));
       setMobile(m);
       setStep("done");
@@ -66,7 +80,7 @@ function ProductModal({ p, onClose }: { p: Product; onClose: () => void }) {
   }
 
   const wa = `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(
-    `Hi Denim, I am ${name.trim()} (${mobile}). I will visit the shop for ${p.name}, size ${size}.`
+    `Hi Denim, I am ${name.trim()} (${mobile}). I will visit the shop for ${p.name}${colour ? ", " + colour : ""}${size ? ", size " + size : ""}.`
   )}`;
 
   return (
@@ -78,10 +92,10 @@ function ProductModal({ p, onClose }: { p: Product; onClose: () => void }) {
       >
         <div className="grid sm:grid-cols-2">
           <div className="relative bg-denim-wash">
-            <Photo src={p.images[img]} alt={p.name} className="aspect-square w-full" />
-            {p.images.length > 1 && (
+            <Photo src={photos[img] ?? photos[0]} alt={p.name} className="aspect-square w-full" />
+            {photos.length > 1 && (
               <div className="flex gap-2 overflow-x-auto p-3">
-                {p.images.map((u, i) => (
+                {photos.map((u, i) => (
                   <button key={u + i} onClick={() => setImg(i)} aria-label={`Photo ${i + 1}`}
                     className={`h-14 w-14 shrink-0 overflow-hidden rounded-lg border-2 ${i === img ? "border-rivet" : "border-transparent"}`}>
                     <img src={u} alt="" className="h-full w-full object-cover" />
@@ -110,7 +124,7 @@ function ProductModal({ p, onClose }: { p: Product; onClose: () => void }) {
               <div className="mt-6 rounded-2xl bg-denim-wash p-5">
                 <p className="flex items-center gap-2 font-display text-xl font-bold"><CheckCircle2 className="text-rivet" /> Thank you, {name.trim()}!</p>
                 <p className="mt-2 text-denim-deep/80">
-                  The shop has received your request for <b>{p.name}</b> (size {size}). Please visit the store and we will keep it ready for you.
+                  The shop has received your request for <b>{p.name}</b> ({[colour, size ? `size ${size}` : ""].filter(Boolean).join(", ")}). Please visit the store and we will keep it ready for you.
                 </p>
                 <div className="mt-4 flex flex-wrap gap-3">
                   <a href={MAPS} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full bg-denim-deep px-5 py-2.5 font-bold text-white hover:bg-denim">
@@ -122,14 +136,30 @@ function ProductModal({ p, onClose }: { p: Product; onClose: () => void }) {
                 </div>
                 <p className="mt-3 text-sm text-denim-deep/70">{ADDRESS}</p>
               </div>
-            ) : !p.inStock ? (
+            ) : soldOut ? (
               <p className="mt-6 rounded-xl bg-tag/10 p-4 font-medium text-tag">Currently out of stock. Please ask in store for similar styles.</p>
             ) : (
               <form onSubmit={submit} className="mt-6 space-y-5">
+                {p.status === "low_stock" && <p className="inline-block rounded bg-stitch px-3 py-1 text-sm font-bold text-denim-deep">Only a few left</p>}
+                {needsColour && (
+                  <fieldset>
+                    <legend className="mb-2 font-bold">Colour{colour ? `: ${colour}` : ""}</legend>
+                    <div className="flex flex-wrap gap-3">
+                      {p.colours.map((c) => (
+                        <button type="button" key={c.name} disabled={!c.available} onClick={() => pickColour(c.name)}
+                          aria-label={c.available ? c.name : `${c.name} (not available)`} aria-pressed={colour === c.name} title={c.name}
+                          className={`relative h-10 w-10 rounded-full border-2 ${colour === c.name ? "ring-2 ring-denim-deep ring-offset-2" : ""} ${c.available ? "border-denim-sky" : "cursor-not-allowed opacity-40"}`}
+                          style={{ backgroundColor: c.hex }}>
+                          {!c.available && <span className="absolute inset-0 grid place-items-center text-lg font-bold text-tag">/</span>}
+                        </button>
+                      ))}
+                    </div>
+                  </fieldset>
+                )}
                 <fieldset>
                   <legend className="mb-2 font-bold">Select size</legend>
                   <div className="flex flex-wrap gap-2">
-                    {p.sizes.length === 0 && <p className="text-sm text-denim-deep/70">Sizes available in store.</p>}
+                    {!needsSize && <p className="text-sm text-denim-deep/70">Sizes available in store.</p>}
                     {p.sizes.map((s) => (
                       <button type="button" key={s} onClick={() => setSize(s)} aria-pressed={size === s}
                         className={`min-w-[3rem] rounded-lg border-2 px-3 py-2 font-bold ${size === s ? "border-denim-deep bg-denim-deep text-white" : "border-denim-sky hover:border-denim"}`}>
@@ -140,7 +170,7 @@ function ProductModal({ p, onClose }: { p: Product; onClose: () => void }) {
                 </fieldset>
 
                 {step === "pick" ? (
-                  <button type="button" disabled={!size && p.sizes.length > 0} onClick={() => { if (p.sizes.length === 0) setSize("Any"); setStep("form"); }}
+                  <button type="button" disabled={!ready} onClick={() => setStep("form")}
                     className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-stitch px-7 py-3.5 font-bold text-denim-deep hover:bg-denim-deep hover:text-white disabled:cursor-not-allowed disabled:opacity-50">
                     <Store size={18} /> Visit shop
                   </button>
@@ -213,7 +243,7 @@ export default function ProductSection() {
             className="seam group overflow-hidden rounded-2xl bg-white text-left transition hover:-translate-y-1 hover:shadow-xl">
             <div className="relative">
               <Photo src={p.images[0]} alt={p.name} className="aspect-[4/5] w-full" />
-              {!p.inStock && <span className="absolute left-3 top-3 rounded bg-tag px-2 py-1 text-xs font-bold text-white">Out of stock</span>}
+              {p.status !== "in_stock" && <span className={`absolute left-3 top-3 rounded px-2 py-1 text-xs font-bold ${p.status === "out_of_stock" ? "bg-tag text-white" : "bg-stitch text-denim-deep"}`}>{STOCK_LABEL[p.status]}</span>}
             </div>
             <div className="p-4">
               <p className="text-xs font-medium text-rivet">{p.category}</p>
@@ -222,6 +252,11 @@ export default function ProductSection() {
                 <span className="font-bold text-denim">{inr(p.price)}</span>
                 {p.mrp && p.mrp > p.price && <span className="text-sm text-denim-deep/50 line-through">{inr(p.mrp)}</span>}
               </p>
+              {p.colours.length > 0 && (
+                <div className="mt-2 flex gap-1.5" aria-label="Available colours">
+                  {p.colours.slice(0, 6).map((c) => <span key={c.name} title={c.name} className={`h-4 w-4 rounded-full border border-denim-sky ${c.available ? "" : "opacity-30"}`} style={{ backgroundColor: c.hex }} />)}
+                </div>
+              )}
               {p.sizes.length > 0 && <p className="mt-1 truncate text-xs text-denim-deep/70">Sizes: {p.sizes.join(", ")}</p>}
             </div>
           </button>

@@ -35,7 +35,25 @@ self.addEventListener("fetch", (e) => {
   );
 });
 
+// push notification sent by the notify-admin function
+self.addEventListener("push", (e) => {
+  let d = { title: "New shop visit request", body: "", url: "/#/admin" };
+  try { d = { ...d, ...e.data.json() }; } catch (err) { /* keep defaults */ }
+  e.waitUntil(
+    self.registration.showNotification(d.title, {
+      body: d.body, icon: "/icon-192.png", badge: "/favicon-32.png",
+      tag: "denim-visit", renotify: true, data: { url: d.url },
+    })
+  );
+});
+
 self.addEventListener("notificationclick", (e) => {
   e.notification.close();
-  e.waitUntil(self.clients.openWindow("/#/admin"));
+  const url = (e.notification.data && e.notification.data.url) || "/#/admin";
+  e.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+      for (const c of list) { if ("focus" in c) { c.navigate(url); return c.focus(); } }
+      return self.clients.openWindow(url);
+    })
+  );
 });

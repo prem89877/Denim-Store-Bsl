@@ -12,3 +12,16 @@ export const DEMO_ADMIN_PASSCODE = "denim123";
 
 export const CATEGORIES = ["Jeans", "Shirts and tees", "Jackets", "Kids wear", "Accessories", "Other"];
 export const SIZE_PRESETS = ["S", "M", "L", "XL", "XXL", "28", "30", "32", "34", "36", "38", "40", "Free size"];
+
+/* quick colour options for the admin product form (admin can also add any custom colour) */
+export const COLOUR_PRESETS = [
+  { name: "Indigo", hex: "#1F3A6E" },
+  { name: "Light blue", hex: "#7FA6D4" },
+  { name: "Black", hex: "#1A1A1A" },
+  { name: "Grey", hex: "#8A8F98" },
+  { name: "White", hex: "#F5F5F5" },
+  { name: "Khaki", hex: "#B9A57A" },
+];
+
+export const MAX_PRODUCT_IMAGES = 5;
+export const MAX_COLOUR_IMAGES = 5;

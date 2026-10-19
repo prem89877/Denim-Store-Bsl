@@ -2,6 +2,15 @@ import { supabase } from "./supabase";
 import { DEMO_ADMIN_PASSCODE } from "../config";
 import { blobToDataUrl, compressImage } from "./utils";
 
+export type StockStatus = "in_stock" | "low_stock" | "out_of_stock";
+export const STOCK_LABEL: Record<StockStatus, string> = {
+  in_stock: "In stock",
+  low_stock: "Few left",
+  out_of_stock: "Out of stock",
+};
+
+export type ColourOption = { name: string; hex: string; images: string[]; available: boolean };
+
 export type Product = {
   id: string;
   name: string;
@@ -11,7 +20,8 @@ export type Product = {
   description: string;
   sizes: string[];
   images: string[];
-  inStock: boolean;
+  colours: ColourOption[];
+  status: StockStatus;
   createdAt: string;
 };
 export type ProductInput = Omit<Product, "id" | "createdAt"> & { id?: string };
@@ -21,6 +31,7 @@ export type VisitRequest = {
   productId: string;
   productName: string;
   size: string;
+  colour: string;
   customerName: string;
   mobile: string;
   status: "new" | "seen";
@@ -33,25 +44,25 @@ export const isCloud = supabase !== null;
 type ProductRow = {
   id: string; name: string; price: number; mrp: number | null; category: string;
   description: string | null; sizes: string[] | null; images: string[] | null;
-  in_stock: boolean; created_at: string;
+  stock_status: StockStatus; colours: ColourOption[] | null; created_at: string;
 };
 type VisitRow = {
-  id: string; product_id: string | null; product_name: string; size: string;
+  id: string; product_id: string | null; product_name: string; size: string; colour: string | null;
   customer_name: string; mobile: string; status: "new" | "seen"; created_at: string;
 };
 const fromProduct = (r: ProductRow): Product => ({
   id: r.id, name: r.name, price: Number(r.price), mrp: r.mrp == null ? null : Number(r.mrp),
   category: r.category, description: r.description ?? "", sizes: r.sizes ?? [], images: r.images ?? [],
-  inStock: r.in_stock, createdAt: r.created_at,
+  colours: r.colours ?? [], status: r.stock_status, createdAt: r.created_at,
 });
 const fromVisit = (r: VisitRow): VisitRequest => ({
-  id: r.id, productId: r.product_id ?? "", productName: r.product_name, size: r.size,
+  id: r.id, productId: r.product_id ?? "", productName: r.product_name, size: r.size, colour: r.colour ?? "",
   customerName: r.customer_name, mobile: r.mobile, status: r.status, createdAt: r.created_at,
 });
 
 /* ---------- local (demo) storage ---------- */
-const LP = "denim.products.v1";
-const LV = "denim.visits.v1";
+const LP = "denim.products.v2";
+const LV = "denim.visits.v2";
 const LA = "denim.admin";
 
 function readLocal<T>(key: string, fallback: T): T {
@@ -73,13 +84,13 @@ function writeLocal(key: string, value: unknown) {
 const SEED: Product[] = [
   { id: "demo-1", name: "Classic Straight Jeans", price: 1299, mrp: 1599, category: "Jeans",
     description: "Mid-rise straight fit in durable mid-blue denim.", sizes: ["30", "32", "34", "36"],
-    images: [], inStock: true, createdAt: new Date().toISOString() },
+    images: [], colours: [], status: "in_stock", createdAt: new Date().toISOString() },
   { id: "demo-2", name: "Washed Trucker Jacket", price: 1899, mrp: null, category: "Jackets",
     description: "Washed denim jacket with metal buttons.", sizes: ["M", "L", "XL"],
-    images: [], inStock: true, createdAt: new Date().toISOString() },
+    images: [], colours: [], status: "in_stock", createdAt: new Date().toISOString() },
   { id: "demo-3", name: "Kids Stretch Jeans", price: 799, mrp: 999, category: "Kids wear",
     description: "Soft stretch denim for everyday play.", sizes: ["S", "M", "L"],
-    images: [], inStock: true, createdAt: new Date().toISOString() },
+    images: [], colours: [], status: "in_stock", createdAt: new Date().toISOString() },
 ];
 
 const channel = () => (typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("denim-visits") : null);
@@ -100,7 +111,7 @@ export async function saveProduct(p: ProductInput): Promise<void> {
   if (supabase) {
     const row = {
       name: p.name, price: p.price, mrp: p.mrp, category: p.category, description: p.description,
-      sizes: p.sizes, images: p.images, in_stock: p.inStock,
+      sizes: p.sizes, images: p.images, colours: p.colours, stock_status: p.status,
     };
     const { error } = p.id
       ? await supabase.from("products").update(row).eq("id", p.id)
@@ -125,6 +136,15 @@ export async function deleteProduct(id: string): Promise<void> {
   writeLocal(LP, readLocal<Product[]>(LP, []).filter((x) => x.id !== id));
 }
 
+export async function setStockStatus(id: string, status: StockStatus): Promise<void> {
+  if (supabase) {
+    const { error } = await supabase.from("products").update({ stock_status: status }).eq("id", id);
+    if (error) throw new Error(error.message);
+    return;
+  }
+  writeLocal(LP, readLocal<Product[]>(LP, []).map((x) => (x.id === id ? { ...x, status } : x)));
+}
+
 export async function uploadImage(file: File): Promise<string> {
   const blob = await compressImage(file);
   if (supabase) {
@@ -137,20 +157,23 @@ export async function uploadImage(file: File): Promise<string> {
 }
 
 /* ---------- visit requests ---------- */
-export async function createVisit(v: Omit<VisitRequest, "id" | "status" | "createdAt">): Promise<void> {
+export async function createVisit(v: Omit<VisitRequest, "id" | "status" | "createdAt">): Promise<string> {
   const full: VisitRequest = { ...v, id: crypto.randomUUID(), status: "new", createdAt: new Date().toISOString() };
   if (supabase) {
     const { error } = await supabase.from("visit_requests").insert({
-      id: full.id, product_id: v.productId || null, product_name: v.productName, size: v.size,
+      id: full.id, product_id: v.productId || null, product_name: v.productName, size: v.size, colour: v.colour,
       customer_name: v.customerName, mobile: v.mobile,
     });
     if (error) throw new Error(error.message);
-    return;
+    // ask the server to push a notification to the shop owner's phone (does not block or fail the customer)
+    void supabase.functions.invoke("notify-admin", { body: { visit_id: full.id } }).catch(() => undefined);
+    return full.id;
   }
   writeLocal(LV, [full, ...readLocal<VisitRequest[]>(LV, [])]);
   const bc = channel();
   bc?.postMessage(full);
   bc?.close();
+  return full.id;
 }
 
 export async function listVisits(): Promise<VisitRequest[]> {
@@ -197,10 +220,17 @@ export function subscribeVisits(cb: (v: VisitRequest) => void): () => void {
 }
 
 /* ---------- admin auth ---------- */
+/* An admin is a login that exists in the SQL "admins" table (see supabase/schema.sql). */
+async function cloudIsAdmin(): Promise<boolean> {
+  if (!supabase) return false;
+  const { data, error } = await supabase.rpc("is_admin");
+  return !error && data === true;
+}
+
 export async function isAdminSession(): Promise<boolean> {
   if (supabase) {
     const { data } = await supabase.auth.getSession();
-    return data.session !== null;
+    return data.session !== null && (await cloudIsAdmin());
   }
   return sessionStorage.getItem(LA) === "1";
 }
@@ -209,6 +239,10 @@ export async function adminSignIn(idOrEmail: string, secret: string): Promise<vo
   if (supabase) {
     const { error } = await supabase.auth.signInWithPassword({ email: idOrEmail, password: secret });
     if (error) throw new Error(error.message);
+    if (!(await cloudIsAdmin())) {
+      await supabase.auth.signOut();
+      throw new Error("This account is not an admin.");
+    }
     return;
   }
   if (secret !== DEMO_ADMIN_PASSCODE) throw new Error("Wrong passcode");
@@ -218,4 +252,13 @@ export async function adminSignIn(idOrEmail: string, secret: string): Promise<vo
 export async function adminSignOut(): Promise<void> {
   if (supabase) await supabase.auth.signOut();
   sessionStorage.removeItem(LA);
+}
+
+/* ---------- push subscriptions (admin devices) ---------- */
+export async function savePushSubscription(sub: PushSubscriptionJSON): Promise<void> {
+  if (!supabase || !sub.endpoint || !sub.keys) return;
+  const { error } = await supabase
+    .from("push_subscriptions")
+    .upsert({ endpoint: sub.endpoint, p256dh: sub.keys.p256dh, auth: sub.keys.auth }, { onConflict: "endpoint" });
+  if (error) throw new Error(error.message);
 }
