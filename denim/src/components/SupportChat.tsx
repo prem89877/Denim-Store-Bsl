@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { MessageCircle, Send, X, Phone } from "lucide-react";
 import { supabase } from "../lib/supabase";
-import { PHONE, WHATSAPP } from "../config";
+import { ADDRESS, MAPS, PHONE, WHATSAPP } from "../config";
+import { listProducts, priceRange, STOCK_LABEL, type Product } from "../lib/store";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
@@ -10,6 +11,56 @@ const GREETING: Msg = {
   content: "Namaste! Main Denim ka AI assistant hoon, 24/7 madad ke liye. Products, price, size, stock ya shop timing, kuch bhi poochiye.",
 };
 const QUICK = ["Shop kahan hai?", "Jeans ke options?", "Size kaise choose karun?"];
+
+/* ---------- offline helper: used when the AI server cannot answer ---------- */
+const has = (q: string, words: string[]) => words.some((w) => q.includes(w));
+const rs = (n: number) => `Rs ${n}`;
+
+function describe(p: Product): string {
+  const { min, max } = priceRange(p);
+  const price = min === max ? rs(min) : `${rs(min)} - ${rs(max)}`;
+  const sizes = p.sizes.length ? `\nSizes: ${p.sizes.join(", ")}` : "";
+  const colours = p.colours.filter((c) => c.available).map((c) => c.name).join(", ");
+  return `${p.name} - ${price} (${STOCK_LABEL[p.status]})${sizes}${colours ? `\nColours: ${colours}` : ""}`;
+}
+
+async function localAnswer(raw: string): Promise<string | null> {
+  const q = raw.toLowerCase();
+  const visit = "Website se product, colour aur size chunke \"Visit shop\" dabaiye, shop owner ko turant pata chal jayega. Phir aap shop par aa sakte hain.";
+
+  if (has(q, ["kahan", "kaha ", "address", "location", "where", "map", "direction", "rasta", "pata"]))
+    return `Hamari shop: ${ADDRESS}\nMap: ${MAPS}`;
+  if (has(q, ["phone", "call", "number", "contact", "mobile", "baat"]))
+    return `Aap seedha is number par call kar sakte hain: ${PHONE}`;
+  if (has(q, ["timing", "time", "open", "close", "band", "khula", "khulta", "kab tak", "kitne baje"]))
+    return `Shop roz subah se raat tak khuli rehti hai. Exact timing ke liye ${PHONE} par call kar lijiye.`;
+  if (has(q, ["online", "delivery", "payment", "pay ", "order", "cod", "courier"]))
+    return `Ye showcase website hai, yahan online payment ya delivery nahi hai. ${visit}`;
+  if (has(q, ["hello", "hi", "hii", "namaste", "hey"]) && q.length < 15)
+    return "Namaste! Products, price, size, stock ya shop ka address, kuch bhi poochiye.";
+
+  let products: Product[] = [];
+  try { products = await listProducts(); } catch { /* ignore */ }
+
+  if (products.length) {
+    const words = q.split(/[^a-z0-9]+/).filter((w) => w.length > 2 && !["the", "hai", "kya", "ka", "ki", "ke", "mai", "mein", "hain", "kitna", "kitne", "price", "rate"].includes(w));
+    const hits = products.filter((p) => {
+      const hay = `${p.name} ${p.category} ${p.description}`.toLowerCase();
+      return words.some((w) => hay.includes(w) || (w.length > 3 && hay.includes(w.replace(/s$/, ""))));
+    });
+    if (hits.length) return `${hits.slice(0, 4).map(describe).join("\n\n")}${hits.length > 4 ? `\n\n...aur ${hits.length - 4} products website par hain.` : ""}\n\n${visit}`;
+
+    if (has(q, ["price", "rate", "kimat", "kitne", "kitna", "cost", "daam", "dam"]))
+      return `Kuch products:\n${products.slice(0, 5).map(describe).join("\n\n")}\n\nPura list website par dekh sakte hain.`;
+    if (has(q, ["product", "option", "collection", "kya milta", "available", "stock", "jeans", "shirt", "jacket"]))
+      return `Website par abhi ye products hain:\n${products.slice(0, 6).map((p) => `- ${p.name} (${STOCK_LABEL[p.status]})`).join("\n")}`;
+  }
+
+  if (has(q, ["size", "naap", "fit"]))
+    return "Size ke liye apni kamar (waist) ka naap lijiye ya jo jeans pehle pehni hai uska size dekhiye. Har product ke card par available sizes dikhte hain. Pakka na ho toh shop par try kar sakte hain.";
+  if (has(q, ["visit", "kaise", "how", "use"])) return visit;
+  return null;
+}
 
 export default function SupportChat() {
   const [open, setOpen] = useState(false);
@@ -33,11 +84,22 @@ export default function SupportChat() {
       if (!supabase) throw new Error("demo");
       const history = next.slice(1).slice(-10); // skip the greeting, keep the last 10 messages
       const { data, error } = await supabase.functions.invoke("ai-support", { body: { messages: history } });
-      if (error || !data?.reply) throw new Error("fail");
+      if (error || !data?.reply) {
+        let detail = "";
+        try { detail = await (error as { context?: Response } | null)?.context?.text() ?? ""; } catch { /* ignore */ }
+        console.warn("[Denim support] AI server error:", error?.message ?? "no reply", detail || data);
+        throw new Error("fail");
+      }
       setMsgs([...next, { role: "assistant", content: String(data.reply) }]);
     } catch {
-      setFailed(true);
-      setMsgs([...next, { role: "assistant", content: `Abhi AI jawab nahi de pa raha. Aap seedha call ya WhatsApp kar sakte hain: ${PHONE}` }]);
+      // AI unavailable: answer from shop details + product list instead of just showing a phone number
+      const local = await localAnswer(q).catch(() => null);
+      if (local) {
+        setMsgs([...next, { role: "assistant", content: local }]);
+      } else {
+        setFailed(true);
+        setMsgs([...next, { role: "assistant", content: `Is sawal ka jawab mere paas nahi hai. Aap seedha call ya WhatsApp kar sakte hain: ${PHONE}` }]);
+      }
     } finally {
       setBusy(false);
     }

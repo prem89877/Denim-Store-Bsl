@@ -66,25 +66,34 @@ Rules:
 Current products:
 ${await catalogue()}`;
 
-    const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${key}`,
-        "Content-Type": "application/json",
-        "X-Title": "Denim BSL Support",
-      },
-      body: JSON.stringify({
-        model: Deno.env.get("OPENROUTER_MODEL") ?? "openai/gpt-4o-mini",
-        max_tokens: 400,
-        temperature: 0.4,
-        messages: [{ role: "system", content: system }, ...messages],
-      }),
-    });
-    if (!r.ok) return reply({ error: "AI error" }, 502);
-    const json = await r.json();
-    const text = json?.choices?.[0]?.message?.content;
-    if (typeof text !== "string" || !text.trim()) return reply({ error: "Empty reply" }, 502);
-    return reply({ reply: text.trim() });
+    const primary = Deno.env.get("OPENROUTER_MODEL") ?? "openai/gpt-4o-mini";
+    const models = [primary, "google/gemini-2.0-flash-001", "meta-llama/llama-3.3-70b-instruct"].filter((m, i, a) => a.indexOf(m) === i);
+    let text: unknown;
+    let lastError = "";
+    for (const model of models) {
+      const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${key}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": "https://denim-bsl.app",
+          "X-Title": "Denim BSL Support",
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: 400,
+          temperature: 0.4,
+          messages: [{ role: "system", content: system }, ...messages],
+        }),
+      });
+      if (!r.ok) { lastError = `${model}: HTTP ${r.status} ${(await r.text()).slice(0, 200)}`; console.error(lastError); continue; }
+      const json = await r.json();
+      text = json?.choices?.[0]?.message?.content;
+      if (typeof text === "string" && text.trim()) break;
+      lastError = `${model}: empty reply`;
+    }
+    if (typeof text !== "string" || !text.trim()) return reply({ error: "AI error", detail: lastError }, 502);
+    return reply({ reply: (text as string).trim() });
   } catch (e) {
     return reply({ error: String(e) }, 500);
   }
