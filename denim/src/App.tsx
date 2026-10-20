@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import {
-  MapPin, Phone, Menu, X, Award, Users, Heart, Star, Navigation, Clock, Download, Store,
+  MapPin, Phone, Menu, X, Award, Users, Heart, Star, Navigation, Clock, Download, Store, MessageCircle,
 } from "lucide-react";
 import ProductSection from "./components/ProductSection";
 import Admin from "./components/Admin";
@@ -9,6 +9,10 @@ import WelcomePrompt from "./components/WelcomePrompt";
 import SupportChat from "./components/SupportChat";
 import { isIOS, isStandalone, useInstallPrompt } from "./pwa";
 import { PHONE, ADDRESS, MAPS } from "./config";
+
+/* developer credit (Blisssgen) */
+const DEV_PHONE = "8262988331";
+const DEV_WHATSAPP = `https://wa.me/91${DEV_PHONE}?text=${encodeURIComponent("Hi Blisssgen team, I saw your work on the Denim website and want to talk about a website/app.")}`;
 
 const stats = [
   { n: "6+", l: "Years in Bhusawal" },
@@ -237,6 +241,19 @@ function Site() {
           <div>
             <p className="font-bold text-stitch">Find us</p>
             <a href={MAPS} target="_blank" rel="noreferrer" className="mt-2 flex gap-2 hover:text-stitch"><MapPin size={16} className="mt-1 shrink-0" />{ADDRESS}</a>
+          </div>
+        </div>
+        <div className="border-t border-white/15">
+          <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-5 py-5 text-sm sm:flex-row">
+            <p className="text-denim-sky">Website / application made by <span className="font-bold text-white">Blisssgen developer team</span></p>
+            <div className="flex flex-wrap justify-center gap-3">
+              <a href={`tel:${DEV_PHONE}`} className="inline-flex items-center gap-2 rounded-full bg-stitch px-5 py-2 font-bold text-denim-deep hover:bg-white">
+                <Phone size={15} /> Contact us
+              </a>
+              <a href={DEV_WHATSAPP} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full border-2 border-white/60 px-5 py-2 font-bold hover:bg-white hover:text-denim-deep">
+                <MessageCircle size={15} /> WhatsApp
+              </a>
+            </div>
           </div>
         </div>
       </footer>
