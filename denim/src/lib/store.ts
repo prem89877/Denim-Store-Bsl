@@ -119,10 +119,15 @@ export async function saveProduct(p: ProductInput): Promise<void> {
       name: p.name, price: p.price, mrp: p.mrp, category: p.category, description: p.description,
       sizes: p.sizes, images: p.images, colours: p.colours, size_prices: p.sizePrices, stock_status: p.status,
     };
-    const { error } = p.id
-      ? await supabase.from("products").update(row).eq("id", p.id)
-      : await supabase.from("products").insert(row);
+    if (p.id) {
+      const { error } = await supabase.from("products").update(row).eq("id", p.id);
+      if (error) throw new Error(error.message);
+      return;
+    }
+    const { data, error } = await supabase.from("products").insert(row).select("id").single();
     if (error) throw new Error(error.message);
+    // new product: ask the server to push a notification to all customer devices (never blocks or fails the admin)
+    void supabase.functions.invoke("notify-customers", { body: { product_id: data.id } }).catch(() => undefined);
     return;
   }
   const all = readLocal<Product[]>(LP, []);

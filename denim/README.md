@@ -39,6 +39,12 @@ Make an admin the easy way: sign up on the website with the owner's email, then 
 ## First visit prompt + app name
 A first-time visitor sees a small "Welcome to Denim BSL" card with **Install app** and **Enable notifications** (shown once; iPhone users get the "Add to Home Screen" steps). The installed app is named **Denim BSL** (`public/manifest.webmanifest`). Customer devices that allow notifications are saved in `customer_push_subscriptions` (separate from admin devices). Sending shop updates to customers is not built yet.
 
+## New product alerts (customers)
+When the admin lists a NEW product, every customer device that allowed notifications gets a push ("New at Denim BSL - product name, price"). Editing a product does not send anything.
+
+1. Uses the same `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` secrets as the owner notifications.
+2. Deploy: `supabase functions deploy notify-customers` (keep "Verify JWT" ON, do not use `--no-verify-jwt`). Only a logged-in admin can trigger it.
+
 ## Phone notifications (shop owner)
 When a customer confirms a visit, the request is saved and a server function pushes a notification (customer name, mobile, product, colour, size) to every admin device.
 

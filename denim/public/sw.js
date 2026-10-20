@@ -42,12 +42,12 @@ self.addEventListener("fetch", (e) => {
 
 // push notification sent by the notify-admin function
 self.addEventListener("push", (e) => {
-  let d = { title: "New shop visit request", body: "", url: "/#/admin" };
+  let d = { title: "New shop visit request", body: "", url: "/#/admin", tag: "denim-visit" };
   try { d = { ...d, ...e.data.json() }; } catch (err) { /* keep defaults */ }
   e.waitUntil(
     self.registration.showNotification(d.title, {
       body: d.body, icon: "/icon-192.png", badge: "/favicon-32.png",
-      tag: "denim-visit", renotify: true, data: { url: d.url },
+      tag: d.tag, renotify: true, data: { url: d.url },
     })
   );
 });
