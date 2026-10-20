@@ -20,20 +20,13 @@ const stats = [
   { n: "100+", l: "Styles in store" },
 ];
 
-const journey = [
-  { year: "2019", title: "A small shop begins", text: "Denim opens near Bhusawal Railway Station with one rack of jeans and a promise of honest prices." },
-  { year: "2021", title: "The town starts to trust us", text: "Customers return again and again. Word of mouth fills the shop." },
-  { year: "2023", title: "A bigger range", text: "We grow our range to shirts, jackets and kids wear without losing the personal touch." },
-  { year: "2025", title: "Denim today", text: "A trusted name for style and quality in Bhusawal, with 5000+ happy customers and 100+ styles in our one and only store." },
-];
-
 const values = [
   { icon: Award, title: "Quality we stand behind", text: "We check stitching, fabric and fit before anything is shelved." },
   { icon: Heart, title: "Fair, honest pricing", text: "Good denim should not cost a fortune. Our prices are clear and fair." },
   { icon: Users, title: "Service like family", text: "Our team knows regular customers by name and helps everyone find their fit." },
 ];
 
-const nav = [["Products", "#products"], ["Our journey", "#journey"], ["Our legacy", "#legacy"], ["Visit us", "#visit"]];
+const nav = [["Products", "#products"], ["Our legacy", "#legacy"], ["Visit us", "#visit"]];
 
 function Rivet({ className = "" }: { className?: string }) {
   return <span className={`rivet inline-block h-3 w-3 rounded-full bg-rivet ${className}`} aria-hidden />;
@@ -156,24 +149,6 @@ function Site() {
       {/* PRODUCTS */}
       <ProductSection />
 
-      {/* JOURNEY (real sequence → timeline) */}
-      <section id="journey" className="twill-deep text-white">
-        <div className="mx-auto max-w-4xl px-5 py-20">
-          <h2 className="font-display text-4xl font-extrabold md:text-5xl">Our journey</h2>
-          <p className="mt-3 max-w-xl text-denim-sky">From one rack of jeans to a name the town knows.</p>
-          <ol className="mt-12 space-y-0 border-l-2 border-dashed border-stitch pl-8">
-            {journey.map((j) => (
-              <li key={j.year} className="relative pb-12 last:pb-0">
-                <Rivet className="absolute -left-[41px] top-2 !h-4 !w-4" />
-                <p className="font-display text-3xl font-extrabold text-stitch">{j.year}</p>
-                <h3 className="mt-1 text-xl font-bold">{j.title}</h3>
-                <p className="mt-1 max-w-xl text-denim-wash">{j.text}</p>
-              </li>
-            ))}
-          </ol>
-        </div>
-      </section>
-
       {/* LEGACY */}
       <section id="legacy" className="mx-auto max-w-6xl px-5 py-20">
         <div className="grid gap-12 md:grid-cols-2">
@@ -244,7 +219,7 @@ function Site() {
           </div>
         </div>
         <div className="border-t border-white/15">
-          <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-5 py-5 text-sm sm:flex-row">
+          <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-5 pb-24 pt-5 text-sm sm:flex-row">
             <p className="text-denim-sky">Website / application made by <span className="font-bold text-white">Blisssgen developer team</span></p>
             <div className="flex flex-wrap justify-center gap-3">
               <a href={`tel:${DEV_PHONE}`} className="inline-flex items-center gap-2 rounded-full bg-stitch px-5 py-2 font-bold text-denim-deep hover:bg-white">
