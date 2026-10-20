@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import {
-  MapPin, Phone, Menu, X, Award, Users, Heart, Star, Navigation, Clock, Download,
+  MapPin, Phone, Menu, X, Award, Users, Heart, Star, Navigation, Clock, Download, Store,
 } from "lucide-react";
 import ProductSection from "./components/ProductSection";
 import Admin from "./components/Admin";
@@ -11,17 +11,16 @@ import { isIOS, isStandalone, useInstallPrompt } from "./pwa";
 import { PHONE, ADDRESS, MAPS } from "./config";
 
 const stats = [
-  { n: "25+", l: "Years in Bhusawal" },
-  { n: "10,000+", l: "Happy customers" },
-  { n: "500+", l: "Styles in store" },
-  { n: "3", l: "Generations of trust" },
+  { n: "6+", l: "Years in Bhusawal" },
+  { n: "5000+", l: "Happy customers" },
+  { n: "100+", l: "Styles in store" },
 ];
 
 const journey = [
-  { year: "1998", title: "A small shop begins", text: "Denim opens near Bhusawal Railway Station with one rack of jeans and a promise of honest prices." },
-  { year: "2006", title: "The town starts to trust us", text: "Families return year after year. Word of mouth fills the shop." },
-  { year: "2014", title: "A bigger store", text: "We grow our range to shirts, jackets and kids wear without losing the personal touch." },
-  { year: "2024", title: "Denim today", text: "A trusted name for style and quality in Bhusawal, now with a new generation behind the counter." },
+  { year: "2019", title: "A small shop begins", text: "Denim opens near Bhusawal Railway Station with one rack of jeans and a promise of honest prices." },
+  { year: "2021", title: "The town starts to trust us", text: "Customers return again and again. Word of mouth fills the shop." },
+  { year: "2023", title: "A bigger range", text: "We grow our range to shirts, jackets and kids wear without losing the personal touch." },
+  { year: "2025", title: "Denim today", text: "A trusted name for style and quality in Bhusawal, with 5000+ happy customers and 100+ styles in our one and only store." },
 ];
 
 const values = [
@@ -101,7 +100,7 @@ function Site() {
         <div className="mx-auto grid max-w-6xl items-center gap-10 px-5 py-16 md:grid-cols-5 md:py-28">
           <div className="hero-in md:col-span-3">
             <p className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-1.5 text-sm">
-              <Star size={14} className="text-stitch" /> Trusted by Bhusawal since 1998
+              <Star size={14} className="text-stitch" /> Trusted by Bhusawal since 2019
             </p>
             <h1 className="font-display text-5xl font-extrabold leading-[1.02] tracking-tight md:text-7xl">
               Denim that<br />lives with you.
@@ -130,7 +129,7 @@ function Site() {
               <dl className="space-y-1 text-sm">
                 <div className="flex justify-between"><dt>Fit</dt><dd className="font-bold">Made for you</dd></div>
                 <div className="flex justify-between"><dt>Fabric</dt><dd className="font-bold">Built to last</dd></div>
-                <div className="flex justify-between"><dt>Since</dt><dd className="font-bold">1998</dd></div>
+                <div className="flex justify-between"><dt>Since</dt><dd className="font-bold">2019</dd></div>
               </dl>
               <span className="absolute -bottom-4 right-6 rounded bg-tag px-3 py-1 text-xs font-bold text-white">Bhusawal's favourite</span>
             </div>
@@ -140,10 +139,10 @@ function Site() {
 
       {/* STATS */}
       <section className="bg-denim-wash">
-        <div className="mx-auto grid max-w-6xl grid-cols-2 gap-6 px-5 py-10 md:grid-cols-4">
+        <div className="mx-auto grid max-w-6xl grid-cols-3 gap-3 px-5 py-10 sm:gap-6">
           {stats.map((s) => (
             <div key={s.l} className="text-center">
-              <p className="font-display text-4xl font-extrabold text-denim">{s.n}</p>
+              <p className="font-display text-3xl font-extrabold text-denim sm:text-4xl">{s.n}</p>
               <p className="mt-1 text-sm text-denim-deep">{s.l}</p>
             </div>
           ))}
@@ -177,7 +176,7 @@ function Site() {
           <div>
             <h2 className="font-display text-4xl font-extrabold md:text-5xl">A legacy stitched with trust</h2>
             <p className="mt-5 text-lg text-denim">
-              Denim began with a simple belief: everyone deserves clothes that fit well, last long and cost fairly. Today, grandparents, parents and children shop under one roof.
+              Denim began with a simple belief: everyone deserves clothes that fit well, last long and cost fairly. Today, the whole family can shop under one roof.
             </p>
             <p className="mt-4 text-denim">
               We are proud to be part of Bhusawal's daily life, from first jeans to wedding season. Every pair we sell carries our name, and we take that seriously.
@@ -204,6 +203,7 @@ function Site() {
             <h2 className="font-display text-4xl font-extrabold md:text-5xl">Come visit the store</h2>
             <p className="mt-4 flex gap-3 text-lg"><MapPin className="mt-1 shrink-0 text-rivet" />{ADDRESS}</p>
             <p className="mt-3 flex gap-3 text-lg"><Clock className="shrink-0 text-rivet" />Open every day, morning to night</p>
+            <p className="mt-3 flex gap-3 text-lg"><Store className="shrink-0 text-rivet" />Single outlet, this is our only store</p>
             <div className="mt-8 flex flex-wrap gap-4">
               <a href={MAPS} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full bg-denim-deep px-7 py-3 font-bold text-white hover:bg-denim">
                 <Navigation size={18} /> Navigate to shop
@@ -228,7 +228,7 @@ function Site() {
         <div className="mx-auto grid max-w-6xl gap-8 px-5 py-12 md:grid-cols-3">
           <div>
             <img src="/denim-logo.png" alt="Denim" className="h-10 w-auto" />
-            <p className="mt-2 text-denim-sky">Quality jeanswear for Bhusawal, since 1998.</p>
+            <p className="mt-2 text-denim-sky">Quality jeanswear for Bhusawal, since 2019.</p>
           </div>
           <div>
             <p className="font-bold text-stitch">Call us</p>

@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
       .map((m: { role: string; content: string }) => ({ role: m.role, content: m.content.slice(0, 500) }));
     if (!messages.length || messages[messages.length - 1].role !== "user") return reply({ error: "Bad request" }, 400);
 
-    const system = `You are the friendly 24/7 customer support assistant for ${SHOP.name}, a jeans and clothing shop in Bhusawal, India, open since 1998.
+    const system = `You are the friendly 24/7 customer support assistant for ${SHOP.name}, a jeans and clothing shop in Bhusawal, India, open since 2019. It has a single outlet only (no other branches), 5000+ happy customers and 100+ styles.
 Rules:
 - Reply in the same language and style the customer writes in (English, Hindi, Marathi or Hinglish). Keep answers short and simple (2 to 5 sentences).
 - Only help with this shop: products, prices, sizes, colours, stock, store location, timings, phone, and how the website works. Politely decline unrelated topics.
