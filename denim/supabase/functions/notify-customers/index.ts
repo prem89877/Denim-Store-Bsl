@@ -46,20 +46,26 @@ Deno.serve(async (req) => {
     });
 
     let sent = 0;
+    const errors: string[] = [];
     const list = subs ?? [];
+    if (!list.length) console.error("no customer devices in customer_push_subscriptions");
     for (let i = 0; i < list.length; i += 50) {
       await Promise.all(list.slice(i, i + 50).map(async (s) => {
         try {
           await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload);
           sent++;
         } catch (e) {
-          const code = (e as { statusCode?: number }).statusCode;
-          if (code === 404 || code === 410) await sb.from("customer_push_subscriptions").delete().eq("id", s.id);
+          const err = e as { statusCode?: number; body?: string; message?: string };
+          const msg = `push failed: ${err.statusCode ?? ""} ${err.body ?? err.message ?? ""}`.slice(0, 300);
+          console.error(msg);
+          if (errors.length < 5) errors.push(msg);
+          if (err.statusCode === 404 || err.statusCode === 410) await sb.from("customer_push_subscriptions").delete().eq("id", s.id);
         }
       }));
     }
-    return reply({ ok: true, sent, total: list.length });
+    return reply({ ok: true, sent, total: list.length, errors });
   } catch (e) {
+    console.error("notify-customers failed:", e);
     return reply({ error: String(e) }, 500);
   }
 });

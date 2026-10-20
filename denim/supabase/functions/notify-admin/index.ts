@@ -37,17 +37,23 @@ Deno.serve(async (req) => {
     });
 
     let sent = 0;
+    const errors: string[] = [];
     await Promise.all((subs ?? []).map(async (s) => {
       try {
         await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload);
         sent++;
       } catch (e) {
-        const code = (e as { statusCode?: number }).statusCode;
-        if (code === 404 || code === 410) await sb.from("push_subscriptions").delete().eq("id", s.id);
+        const err = e as { statusCode?: number; body?: string; message?: string };
+        const msg = `push failed: ${err.statusCode ?? ""} ${err.body ?? err.message ?? ""}`.slice(0, 300);
+        console.error(msg);
+        errors.push(msg);
+        if (err.statusCode === 404 || err.statusCode === 410) await sb.from("push_subscriptions").delete().eq("id", s.id);
       }
     }));
-    return reply({ ok: true, sent });
+    if (!subs?.length) console.error("no admin devices in push_subscriptions");
+    return reply({ ok: true, sent, devices: subs?.length ?? 0, errors });
   } catch (e) {
+    console.error("notify-admin failed:", e);
     return reply({ error: String(e) }, 500);
   }
 });

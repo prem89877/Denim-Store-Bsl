@@ -284,6 +284,7 @@ function Dashboard({ onOut }: { onOut: () => void }) {
   const [toast, setToast] = useState<VisitRequest | null>(null);
   const [perm, setPerm] = useState<string>("Notification" in window ? Notification.permission : "unsupported");
   const [error, setError] = useState("");
+  const [pushStatus, setPushStatus] = useState("");
 
   const reload = useCallback(async () => {
     try {
@@ -300,7 +301,13 @@ function Dashboard({ onOut }: { onOut: () => void }) {
   /* keep this device registered for push notifications once permission was given */
   useEffect(() => {
     if (perm === "granted" && pushSupported()) {
-      subscribePush().then((sub) => (sub ? savePushSubscription(sub) : undefined)).catch(() => undefined);
+      subscribePush()
+        .then(async (sub) => {
+          if (!sub) throw new Error("This browser did not give a push subscription");
+          await savePushSubscription(sub);
+          setPushStatus("ok");
+        })
+        .catch((ex) => setPushStatus(ex instanceof Error ? ex.message : String(ex)));
     }
   }, [perm]);
 
@@ -349,6 +356,11 @@ function Dashboard({ onOut }: { onOut: () => void }) {
         {perm === "granted" && (
           <p className="mb-5 flex items-center gap-2 text-sm text-denim">
             <BellRing size={16} /> Notifications are on{!pushSupported() && " (works while this app is open; phone push needs the VAPID key, see README)"}
+          </p>
+        )}
+        {perm === "granted" && pushSupported() && pushStatus && (
+          <p className={`mb-5 rounded-lg bg-white p-3 text-sm ${pushStatus === "ok" ? "text-denim" : "text-tag"}`}>
+            {pushStatus === "ok" ? "This phone is registered for push notifications." : `Phone push could not be registered: ${pushStatus}`}
           </p>
         )}
         {error && <p role="alert" className="mb-4 rounded-lg bg-white p-3 text-tag">{error}</p>}
